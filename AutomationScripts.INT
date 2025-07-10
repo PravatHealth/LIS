@@ -1,0 +1,457 @@
+ROUTINE AutomationScripts [Type=INT,Generated]
+AutomationScripts
+	Quit
+NormalizeProc
+	Set TNO="" For  Set TNO=$Order(^PROC("LBL",TNO)) Quit:TNO=""  Do
+	.Set WCT="" For  Set WCT=$Order(^PROC("LBL",TNO,WCT)) Quit:WCT=""  Do
+	..;If $Piece(^PROC("LBL",TNO,WCT),"*",1)>0 Write !,TNO Read Dud
+	..If $Piece(^PROC("LBL",TNO,WCT),"*",1)="" Set $Piece(^PROC("LBL",TNO,WCT),"*",1)=0
+	Quit
+UpdateSpecimenTypes ; 
+	;Set the globals
+	Set ^T2UTL("SPECTYPE","GRA-BDYF")="Gray Body Fluid_1"
+	Set ^T2UTL("SPECTYPE","PNK-BDYF")="Pink Body Fluid_1"
+	Set ^T2UTL("SPECTYPE","GRA-SYN")="Gray Synovial Fluid_1"
+	Set ^T2UTL("SPECTYPE","PNK-SYN")="Pink Synovial Fluid_1"
+	;Run The integrations
+	Do UpdateAll^IntegrateSpecimenType
+	Quit
+	;
+	;
+UpdateProcBay
+	;
+	Set ^PROC("BAY","AA","AUTOM")="Automate"
+	Set ^PROC("BAY","AA","LINE")="LINE TESTING"
+	Set ^PROC("BAY","AA","Lspin")="LINE TESTING TO BE SPUN BEFORE PLACED ON THE LINE"
+	Set ^PROC("BAY","AA","Lvort")="LINE TESTING TO BE VORTEXED BEFORE PLACED ON THE LINE"
+	Set ^PROC("BAY","AA","L-ph")="LINE TESTING REQUIRES PH ADJUSTMENT BEFORE PLACED ON THE LINE"
+	Set ^PROC("BAY","AA","CTUBE")="CTUBE"
+	Do UpdateAll^IntegrateWorkBay
+	Quit
+UpdateCTube
+	;
+	Set ^DLY(500)="C-Tube"
+	Set ^T2(99,29999,9)=500 ; Set the work list for the test.
+	Set ^FLG("NOPRNT",29999)="ARCHIVE-SERUM" ; No Print
+	Set ^FLG("NOBILL",29999)="ARCHIVE-SERUM" ; No Bill
+	Set ^HL7("NOPRNT",29999)="ARCHIVE-SERUM" ; No Report HL7
+	;
+	Set ^T2(96,29996,9)=500 ; Set the work list for the test.
+	Set ^FLG("NOPRNT",29996)="ARCHIVE-EDTA" ; No Print
+	Set ^FLG("NOBILL",29996)="ARCHIVE-EDTA" ; No Bill
+	Set ^HL7("NOPRNT",29996)="ARCHIVE-EDTA" ; No Report HL7
+	;
+	Set ^T2(90,29990,9)=500 ; Set the work list for the test.
+	Set ^FLG("NOPRNT",29990)="ARCHIVE-Run and Hold" ; No Print
+	Set ^FLG("NOBILL",29990)="ARCHIVE-Run and Hold" ; No Bill
+	Set ^HL7("NOPRNT",29990)="ARCHIVE-Run and Hold" ; No Report HL7
+	;
+	;Do not add to PROC(WNO.  Having it off the list will allow the test to be sent to DI 
+	Quit
+	;
+CleanupAliquotLabels
+	Set flgDebug=0
+	Kill ^PROCEXPORT("LBL")
+	Merge ^PROCEXPORT("LBL")=^PROC("LBL")
+	Do ReadData
+	Quit
+ReadData
+	Set FILE="S:\TEMP\AliquotBarcodeChanges04052019.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do
+ 	.;Get ProcedureCode from Data
+ 	.Kill ProcedureCode
+ 	.Set ProcedureCode=$Piece(DATA,$C(9),2)
+ 	.Set ProcedureCode=$ZSTRIP(ProcedureCode,"*P")
+ 	.If flgDebug Use $P Write !,"ProcedureCode = "_ProcedureCode Read DUD
+ 	.;Get Active Flag and delete from ^PROC("LBL" If Not active test.
+ 	.Set ActiveFlag=$Piece(DATA,$C(9),15)
+ 	.If flgDebug Use $P Write !,"ActiveFlag = "_ActiveFlag
+ 	.;Get Workcenter by name from data
+ 	.Set WCTName=$Piece(DATA,$C(9),3)
+ 	.If flgDebug Use $P Write !,"WCTName="_WCTName
+	.Set WCT=$$GetWCTCode(WCTName)
+	.If flgDebug Use $P Write !,"WCT="_WCT
+	.If WCT="" Quit ; unable to get workcenter
+	.If WCT'="AA" Quit ; Only process Pendleton Changes
+	.;Get LabelOrder
+	.Set LabelOrder=$Piece(DATA,$C(9),4)
+	.If flgDebug Use $P Write !,"LabelOrder"_LabelOrder
+	.;Get Volume
+	.Set Volume=$Piece(DATA,$C(9),6)
+	.If flgDebug Use $P Write !,"Volume"_Volume
+	.;Get Barcode Workbay
+	.Set BarcodeWorkbay=$Piece(DATA,$C(9),11)
+	.If flgDebug Use $P Write !,"BarcodeWorkbay="_BarcodeWorkbay
+	.;Get Results Workbay
+	.Set ResultsWorkbay=$Piece(DATA,$C(9),12)
+	.If flgDebug Use $P Write !,"ResultsWorkbay="_ResultsWorkbay
+	.;Delete ^PROC(LBL if not active
+	.If ActiveFlag="FALSE" Merge ^CacheTemp.PROCDelete("LBL",ProcedureCode,WCT)=^PROC("LBL",ProcedureCode,WCT)
+	.If ActiveFlag="FALSE" Kill ^PROC("LBL",ProcedureCode,WCT) ;- Turn on when ready
+	.If ((BarcodeWorkbay="")&(ResultsWorkbay="")) Quit ; if both are null then quit.
+	.;Get Current Label Data
+	.If flgDebug Use $P Write !!,"TestNumber: ",ProcedureCode," WorkCenter: ",WCT
+	.Set OldData=$Get(^PROC("LBL",ProcedureCode,WCT))
+	.If OldData="" Quit ; if there is no data at this level dont process
+	.Set NewData=$Extract(OldData,1,2) ; Get start of string
+	.Set Labels=$Extract(OldData,3,$Length(OldData)) ; Get Rest of the labels
+	.Set LabelCount=$Length(Labels,"^") ; Get Label Count
+	.For I=1:1:LabelCount Set Label=$Piece(Labels,"^",I)  Do
+	..If I'=LabelOrder Quit
+	..Set OldBay=$Piece(Label,"_",6)
+	..Set OldVolume=$Piece(Label,"_",3)
+	..Set NewBay="*"
+	..Set $Piece(NewBay,"*",1)=BarcodeWorkbay
+	..Set $Piece(NewBay,"*",2)=ResultsWorkbay
+	..If $Piece(NewBay,"*",2)="" Set NewBay=BarcodeWorkbay
+	..Set $Piece(Label,"_",6)=NewBay
+	..Set $Piece(Label,"_",3)=Volume
+	..Set $Piece(Labels,"^",I)=Label
+	.Set NewData=NewData_Labels
+	.Use $P Write !!,"old = "_OldData
+	.Use $P Write !,"new = "_NewData
+	.If flgDebug Read DUD
+	.Set ^PROC("LBL",ProcedureCode,WCT)=NewData
+ 	;Close the file
+ 	Close FILE
+ 	Quit
+ 	;
+GetWCTCode(WCTName)
+	New (WCTName)
+	Set WCT=""
+	Set flgDebug=0
+	 ;---&sql(SELECT %NOLOCK Code INTO WCT FROM LIS_SQL.tblWorkCenter WHERE Name = :WCTName)
+ 	 ;--- ** SQL PUBLIC Variables: %ROWCOUNT, %ROWID, %msg, SQLCODE, WCT, WCTName
+	do %0Ao
+	If SQLCODE=0 {
+    	If flgDebug Use $P Write !,"Exists succeeded"
+    	}
+    ElseIf SQLCODE=100 {
+    	If flgDebug Use $P Write !,"Exists succeeded"
+    	}
+  	Else {
+    	If flgDebug Use $P Write !,"Check Faild, SQLCODE=",SQLCODE
+    	}
+	Quit WCT
+	;
+LoadContainerCount ; Load the container count Changes
+	Kill
+	Kill ^CacheTemp("ContainerCount")
+	Set flgDebug=0
+	Set FILE="S:\TEMP\SSTQuantityUpdate_03112019.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do
+	.;Get ProcedureCode from Data
+ 	.Kill ProcedureCode
+ 	.Set ProcedureCode=$Piece(DATA,$C(9),1)
+ 	.Set ProcedureCode=$ZSTRIP(ProcedureCode,"*P")
+ 	.If flgDebug Use $P Write !,"ProcedureCode = "_ProcedureCode Read DUD
+ 	.;Get ProcedureCode from Data
+ 	.Kill Quantity
+ 	.Set Quantity=$Piece(DATA,$C(9),6)
+ 	.Set Quantity=$ZSTRIP(Quantity,"*P")
+ 	.If flgDebug Use $P Write !,"Quantity = "_Quantity Read DUD
+ 	.Set ^CacheTemp("ContainerCount","NEW",ProcedureCode)=Quantity
+	;Close the file
+ 	Close FILE
+ 	Quit
+ 	;
+UpdateCollections1
+	Kill ^CacheTemp.PrefSpecUpdate("OLD")
+	Kill ^CacheTemp.PrefSpecUpdate("NEW")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Kill aTestFile 
+	..Merge aTestFile=^T2(XT,TNO)
+	..;
+	..;Pre Process to rebuild later
+	..Set PreferredCollectionIDs=$Get(aTestFile(200))
+	..;Write !,PreferredCollectionIDs Read DUD
+	..Set pr=$Length(PreferredCollectionIDs,"|") 
+	..For i=1:1:pr Set poid=$Piece(PreferredCollectionIDs,"|",i) Quit:poid=""  Do
+	...Set ^CacheTemp.PrefSpecUpdate("OLD",TNO,200,poid)=""
+	..;
+	..Set AlternateCollectionIDs=$Get(aTestFile(201))
+	..Set ar=$Length(AlternateCollectionIDs,"|")
+	..For i=1:1:ar Set aoid=$Piece(AlternateCollectionIDs,"|",i) Quit:aoid=""  Do
+	...Set ^CacheTemp.PrefSpecUpdate("OLD",TNO,201,aoid)=""
+	..;
+	..Set SubmitionRequirmentID=$Get(aTestFile(202))
+	..Set ^CacheTemp.PrefSpecUpdate("OLD",TNO,202,"Submit")=SubmitionRequirmentID
+	..Set ^CacheTemp.PrefSpecUpdate("OLD",TNO,202,"SubmitMinVol")="UNK"
+	..If SubmitionRequirmentID'=""  Do
+	...Set Submit=##class(TestFile.Submit).%ExistsId(SubmitionRequirmentID)
+	...If Submit'=""  Do
+	....Set Submit=##class(TestFile.Submit).%OpenId(SubmitionRequirmentID)
+	....If Submit.PreferredSubmit.Count()>0  Do ;If there is any Preferred Submits continue to display them
+	.....For i=1:1:Submit.PreferredSubmit.Count() Do
+	......Set PreferredSubmit=Submit.PreferredSubmit.GetAt(i)
+	......Set PreferredSubmitMinVol=PreferredSubmit.PrefSubMinVolume
+	......Set ^CacheTemp.PrefSpecUpdate("OLD",TNO,202,"SubmitMinVol")=PreferredSubmitMinVol
+	......Do PreferredSubmit.%Close()
+	...Do Submit.%Close()
+	Quit
+UpdateCollections2
+	Kill
+	;
+	Kill ^CacheTemp.PrefSpecUpdate("NEW")
+	;
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.PrefSpecUpdate("OLD",TNO)) Quit:TNO=""  Do
+	.;If in no list quit
+	.Set SubmitVolume=^CacheTemp.PrefSpecUpdate("OLD",TNO,202,"SubmitMinVol")
+	.If SubmitVolume="UNK" Quit
+	.;If SubmitVolume="" Quit
+	.;If SubmitVolume>2.5 Quit
+	.;
+	.Set poid="" For  Set poid=$Order(^CacheTemp.PrefSpecUpdate("OLD",TNO,200,poid)) Quit:poid=""  Do
+	..Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	..If PrefSpec=0 Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,200,poid)="" Do PrefSpec.%Close() Quit
+ 	..Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	..If PrefSpec.Container'="35" Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,200,poid)="" Do PrefSpec.%Close() Quit
+ 	..Set OldQuantity=PrefSpec.Quantity
+ 	..If OldQuantity=0 Set OldQuantity=1
+ 	..Set ^CacheTemp("ContainerCount","OLD",TNO)=OldQuantity
+ 	..Set NewQuantity=$Get(^CacheTemp("ContainerCount","NEW",TNO))
+ 	..If NewQuantity="" Set NewQuantity=OldQuantity
+ 	..;Create New Prefered CollectionRequirment
+ 	..Set noid=$$CreateNewSmall(NewQuantity)
+ 	..Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,200,noid)=""
+ 	..Do PrefSpec.%Close() ;Close PrefSpec instance
+ 	..Kill PrefSpec,Container,q,noid,NewQuantity
+	.;
+	.Set aoid="" For  Set aoid=$Order(^CacheTemp.PrefSpecUpdate("OLD",TNO,201,aoid)) Quit:aoid=""  Do
+	..Set AltSpec=##class(TestFile.CollectionRequirements).%ExistsId(aoid)
+ 	..If AltSpec=0 Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,201,aoid)="" Quit
+ 	..Set AltSpec=##class(TestFile.CollectionRequirements).%OpenId(aoid)
+ 	..If AltSpec.Container="35" Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,201,aoid)="" Do AltSpec.%Close() Quit
+ 	..If AltSpec.Container'="34" Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,201,aoid)="" Do AltSpec.%Close() Quit
+ 	..Set NewQuantity=$Get(^CacheTemp("ContainerCount","OLD",TNO))
+ 	..If NewQuantity="" Set NewQuantity=AltSpec.Quantity
+ 	..;Create New Prefered CollectionRequirment
+ 	..Set noid=$$CreateNewLarge(NewQuantity)
+ 	..Set ^CacheTemp.PrefSpecUpdate("NEW",TNO,201,noid)=""
+ 	..Do AltSpec.%Close() ;Close PrefSpec instance
+ 	..Kill AltSpec,Container,q,noid,NewQuantity
+	.;Write !, TNO Read DUD
+	Quit
+	;
+UpdateCollections3
+	;Set Data back to the test file
+	;
+	Kill
+	;For I=1:1 Set DATA=$Piece($T(NoMod+I),";",2) Quit:DATA=""  Do
+	;.Set NoMod(DATA)=""
+	;
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.PrefSpecUpdate("NEW",TNO)) Quit:TNO=""  Do
+	.;If $D(NoMod(TNO)) Quit
+	.Set LINE200=""
+	.Set LINE201=""
+	.Set LINE="" For  Set LINE=$Order(^CacheTemp.PrefSpecUpdate("NEW",TNO,LINE)) Quit:LINE=""  Do
+	..Set oid="" For  Set oid=$Order(^CacheTemp.PrefSpecUpdate("NEW",TNO,LINE,oid)) Quit:oid=""  Do
+	...If LINE=200 Set LINE200=LINE200_oid_"|"
+	...If LINE=201 Set LINE201=LINE201_oid_"|"
+	.Set XT=TNO#100
+	.Set ^T2(XT,TNO,200)=LINE200
+	.Set ^T2(XT,TNO,201)=LINE201
+	;Update the integration with the new collection containers
+	;Do Update^IntegrateTestFile(TNO,0)
+	Quit
+	;
+UpdateCollections4
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.PrefSpecUpdate("NEW",TNO)) Quit:TNO=""  Do
+	.;If $D(NoMod(TNO)) Quit
+	.Do Update^IntegrateTestFile(TNO,0)
+	Quit
+	;
+CreateNewSmall(NewQuantity)
+	New (NewQuantity)
+	Set oref=##class(TestFile.CollectionRequirements).%New() 
+	Set oref.Container=34 ; Small SST
+	Set oref.Quantity=NewQuantity
+	Set oref.SpecType=""
+	Do oref.%Save()
+	Set oid=oref.%Id()
+	Do oref.%Close()
+	Quit oid
+	;
+CreateNewLarge(NewQuantity)
+	New (NewQuantity)
+	If $Get(NewQuantity)="" Set NewQuantity=1 
+	Set oref=##class(TestFile.CollectionRequirements).%New() 
+	Set oref.Container=35 ; Large SST
+	Set oref.Quantity=NewQuantity
+	Set oref.SpecType=""
+	Do oref.%Save()
+	Set oid=oref.%Id()
+	Do oref.%Close()
+	Quit oid
+	;
+CleanPROCDI
+	Set PNO="" For  Set PNO=$Order(^PROC("DI","NW",PNO)) Quit:PNO=""  Do
+	.If PNO < 201902100000 Kill ^PROC("DI","NW",PNO)
+	Quit
+	;
+ListForKen 
+	Kill ^CacheTemp.KEN("OLD")
+	Kill ^CacheTemp.KEN("NEW")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Kill aTestFile 
+	..Merge aTestFile=^T2(XT,TNO)
+	..;
+	..Set TNA=aTestFile(1)
+	..Set flgActive=aTestFile(400)
+	..If flgActive'="Y" Quit
+	..;Pre Process to rebuild later
+	..Set PreferredCollectionIDs=$Get(aTestFile(200))
+	..;Write !,PreferredCollectionIDs Read DUD
+	..Set pr=$Length(PreferredCollectionIDs,"|") 
+	..For i=1:1:pr Set poid=$Piece(PreferredCollectionIDs,"|",i) Quit:poid=""  Do
+	...Set ^CacheTemp.KEN("OLD",TNO,200,poid)=""
+	..;
+	..Set AlternateCollectionIDs=$Get(aTestFile(201))
+	..Set ar=$Length(AlternateCollectionIDs,"|")
+	..For i=1:1:ar Set aoid=$Piece(AlternateCollectionIDs,"|",i) Quit:aoid=""  Do
+	...Set ^CacheTemp.KEN("OLD",TNO,201,aoid)=""
+	..;
+	..Set SubmitionRequirmentID=$Get(aTestFile(202))
+	..Set ^CacheTemp.KEN("OLD",TNO,202,"Submit")=SubmitionRequirmentID
+	..Set ^CacheTemp.KEN("OLD",TNO,202,"SubmitMinVol")="UNK"
+	..If SubmitionRequirmentID'=""  Do
+	...Set Submit=##class(TestFile.Submit).%ExistsId(SubmitionRequirmentID)
+	...If Submit'=""  Do
+	....Set Submit=##class(TestFile.Submit).%OpenId(SubmitionRequirmentID)
+	....If Submit.PreferredSubmit.Count()>0  Do ;If there is any Preferred Submits continue to display them
+	.....For i=1:1:Submit.PreferredSubmit.Count() Do
+	......Set PreferredSubmit=Submit.PreferredSubmit.GetAt(i)
+	......Set PreferredSubmitMinVol=PreferredSubmit.PrefSubMinVolume
+	......Set ^CacheTemp.KEN("OLD",TNO,202,"SubmitMinVol")=PreferredSubmitMinVol
+	......Do PreferredSubmit.%Close()
+	...Do Submit.%Close()
+	..;Get PerferedContainer information
+	..Set Volume=^CacheTemp.KEN("OLD",TNO,202,"SubmitMinVol")
+	..Set poid="" For  Set poid=$Order(^CacheTemp.KEN("OLD",TNO,200,poid)) Quit:poid=""  Do
+	...Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...If PrefSpec=0 Quit
+ 	...Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...If PrefSpec.Container'="35" Do PrefSpec.%Close() Quit
+ 	...Set Container=##Class(Supplies.Container).%OpenId(PrefSpec.Container)
+ 	...Write !,TNO_"^"_TNA_"^"_PrefSpec.Quantity_"^"_Container.BarcodeDescription_"^"_Volume
+ 	...Do PrefSpec.%Close() ;Close PrefSpec instance
+ 	...Kill PrefSpec,Container,q,noid
+	Quit
+TestEvent
+	Set SC=##Class(SM.spSMInsertEventByBarcode)."spSM_InsertEventByBarcode"("1902200285AC","Specimen Created",1)
+	Write !,SC
+	Quit
+CheckPreferedCollections
+	Kill ^CacheTemp.Collections("TNO")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Kill aTestFile 
+	..Merge aTestFile=^T2(XT,TNO)
+	..If $Get(aTestFile(400))'="Y" Quit
+	..;
+	..;Pre Process to rebuild later
+	..Set PreferredCollectionIDs=$Get(aTestFile(200))
+	..;Write !,PreferredCollectionIDs Read DUD
+	..Set pr=$Length(PreferredCollectionIDs,"|") 
+	..For i=1:1:pr Set poid=$Piece(PreferredCollectionIDs,"|",i) Quit:poid=""  Do
+	...Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...If PrefSpec=0 Quit
+ 	...Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...Set coid=PrefSpec.Container
+ 	...Set Container=##class(Supplies.Container).%ExistsId(coid)
+ 	...If Container=0 Do PrefSpec.%Close() Quit
+ 	...Set Container=##class(Supplies.Container).%OpenId(coid)
+ 	...Set BCD=Container.BarcodeDescription
+ 	...If BCD["SST" Set ^CacheTemp.Collections("TNO",TNO,"1",BCD)=""
+ 	...Do PrefSpec.%Close()
+	..Set AlternateCollectionIDs=$Get(aTestFile(201))
+	..Set ar=$Length(AlternateCollectionIDs,"|")
+	..For i=1:1:ar Set aoid=$Piece(AlternateCollectionIDs,"|",i) Quit:aoid=""  Do
+	...Set AltSpec=##class(TestFile.CollectionRequirements).%ExistsId(aoid)
+ 	...If AltSpec=0 Quit
+ 	...Set AltSpec=##class(TestFile.CollectionRequirements).%OpenId(aoid)
+ 	...Set coid=AltSpec.Container
+ 	...Set Container=##class(Supplies.Container).%ExistsId(coid)
+ 	...If Container=0 Do AltSpec.%Close() Quit
+ 	...Set Container=##class(Supplies.Container).%OpenId(coid)
+ 	...Set BCD=Container.BarcodeDescription
+ 	...If BCD["SST" Set ^CacheTemp.Collections("TNO",TNO,"2",BCD)=""
+ 	...Do AltSpec.%Close()
+	Quit
+CheckForPrimaries
+	Kill ^CacheTemp.Collections("NoSeconday")
+	Kill ^CacheTemp.Collections("NoPrimary")
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.Collections("TNO",TNO)) Quit:TNO=""  Do
+	.If $D(^CacheTemp.Collections("TNO",TNO,1,"SST 5ml")) Do
+	..If '$D(^CacheTemp.Collections("TNO",TNO,2,"SST 8.5ml")) Set ^CacheTemp.Collections("NoSeconday",TNO)=""
+	.If $D(^CacheTemp.Collections("TNO",TNO,2,"SST 8.5ml")) Do
+	..If '$D(^CacheTemp.Collections("TNO",TNO,1,"SST 5ml")) Set ^CacheTemp.Collections("NoPrimary",TNO)=""
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.Collections("NoPrimary",TNO)) Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.Set TNA=^T2(XT,TNO,1)
+	.Write !,TNO_"|"_TNA
+	Write !!!!!
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.Collections("NoSeconday",TNO)) Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.Set TNA=^T2(XT,TNO,1)
+	.Write !,TNO_"|"_TNA
+	Quit
+	;
+AddSecondary
+	;Set TNO="" For  Set TNO=$Order(^CacheTemp.Collections("NoSeconday",TNO)) Quit:TNO=""  Do
+	.;Set XT=TNO#100
+	.;Set ^T2(XT,TNO,201)=^T4(XT,TNO,201)
+	;Quit
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.Collections("NoSeconday",TNO)) Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.Set AlternateCollectionIDs=^T4(XT,TNO,201)
+	.Set ar=$Length(AlternateCollectionIDs,"|")
+	.For i=1:1:ar Set aoid=$Piece(AlternateCollectionIDs,"|",i) Quit:aoid=""  Do
+	..Set TNO(TNO,aoid)=""
+	.Set noid=$$CreateNewLarge(1)
+	.Set TNO(TNO,noid)=""
+	.Kill NewAlternateCollectionIDs
+	.Set Lev="" For  Set Lev=$Order(TNO(TNO,Lev)) Quit:Lev=""  Do
+	..Set NewAlternateCollectionIDs=$Get(NewAlternateCollectionIDs)_Lev_"|"
+	.Set ^T2(XT,TNO,201)=NewAlternateCollectionIDs
+	.Do Update^IntegrateTestFile(TNO,1)
+	.Write !, TNO Read DUD
+	Quit
+ q
+%0Ao n sqldata6d,sqldata7d,sqldata8d,sqldata9d,sqldata10d,sqldata11d,sqldata4d
+ s $zt="%0Aerr"
+ s sqldata6d=$zu(115,2)
+ d:$zu(115,15) $system.ECP.Sync()
+ s sqldata4d=$g(WCTName)
+ s SQLCODE=100
+ s sqldata10d=""
+ s sqldata7d="select T1.""Code"" AS C1 FROM  ""LIS"".""tblWorkCenter"" T1 where ((T1.""Name"" = ?))"
+ s sqldata8d=$$GetConnection^%apiGTW("SQL02_LIS"),sqldata9d=%SQLGateway("-uv")&&$zbitget($zversion(0),1)
+ i sqldata8d="" s %msg="Connection 'SQL02_LIS': Can't get connection",SQLCODE=-221 ztrap "GWSQ"
+ i sqldata10d="" s sqldata10d=$zf(-5,%SQLGateway,5,sqldata8d)
+ i sqldata10d="" s sqldata8d=$$Reconnect^%apiGTW("SQL02_LIS") s sqldata10d=$zf(-5,%SQLGateway,5,sqldata8d) d:sqldata10d="" GWQError^%apiSQL("SQL02_LIS",222,"Allocate statement",sqldata8d,sqldata10d)
+ s sqldata11d=$zf(-5,%SQLGateway,$s(%SQLGateway("-uv"):37,1:3),sqldata10d,sqldata7d)
+ d:sqldata11d GWQError^%apiSQL("SQL02_LIS",223,"Prepare("_"select T1.""Code"" AS C1 FROM  ""LIS"".""tblWorkCe..."_")",sqldata8d,sqldata10d)
+ s sqldata11d=$zf(-5,%SQLGateway,8,sqldata10d,$lb(100),$lb(12),$lb(0),$lb(1),$lb(100))
+ d:sqldata11d GWQError^%apiSQL("SQL02_LIS",225,"Bind parameters",sqldata8d,sqldata10d)
+ s sqldata11d=$zf(-5,%SQLGateway,9,sqldata10d,$lb(sqldata4d),1)
+ s sqldata11d=$zf(-5,%SQLGateway,17,sqldata10d) s sqldata11d=$zf(-5,%SQLGateway,4,sqldata10d)
+ d:sqldata11d GWQError^%apiSQL("SQL02_LIS",226,"Execute",sqldata8d,sqldata10d)
+%0AmAk1 s SQLCODE=$zf(-5,%SQLGateway,7,sqldata10d)
+ i SQLCODE=100 s sqldata11d=$zf(-5,%SQLGateway,17,sqldata10d) g %0AmAdun
+ d:SQLCODE GWQError^%apiSQL("SQL02_LIS",227,"Fetch (server error: "_SQLCODE_")",sqldata8d,sqldata10d)
+ s WCT=$zf(-5,%SQLGateway,$s(sqldata9d:50,1:25),sqldata10d,1,$s(sqldata9d:-8,1:1))
+ s sqldata11d=$zf(-5,%SQLGateway,13) d:sqldata11d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C1)",sqldata8d,sqldata10d)
+ s SQLCODE=0 g %0Ac
+ g %0AmAk1
+%0AmAdun 
+%0Ac s %ROWCOUNT='SQLCODE
+ i sqldata10d'="",$g(%SQLGateway) { s sqldata11d=$zf(-5,%SQLGateway,16,sqldata10d) }
+ q
+%0Aerr s $zt=""
+ d SQLRunTimeError^%apiSQL($ze,.SQLCODE,.%msg)
+ g %0Ac

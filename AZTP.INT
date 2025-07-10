@@ -1,0 +1,27 @@
+ROUTINE AZTP [Type=INT]
+AZTP ; ALPHA TEST FILE PRINT [ 12/12/2001   2:05 PM ]
+ ; INTERPATH - RH
+ ; 3/26/91
+ ;
+FLASH S $ZT="ERROR^AZTP"
+ W /ED(2),/CUP(1,1) F I=1:1:5 W !,$P($T(HEAD+I),";",2)
+ D ^LIB0110("P"),NUPAG S CCC="" F  S CCC=$O(^AZT(CCC)) G END:CCC="" D
+ .S TNO="" F  S TNO=$O(^AZT(CCC,TNO)) Q:TNO=""  D
+ ..S DATA=^(TNO) Q:$P(^(TNO),"_",1)'=""  S TNA=$P(DATA,"_",2),TNA=$P(TNA,"[",1),XT=TNO#100 W !,TNO,?10,TNA I $Y>64 D NUPAG
+ Q
+ 
+ 
+NUPAG W #,!!?20,"ALPHABETIC TEST FILE PRINT",!! D ^LIB0017 W ?70 D ^LIB0018 W !!,"TEST #",?10,"TEST NAME ",!! Q
+ 
+HEAD ;
+ ;                ***********************************************
+ ;                *                                             *
+ ;                *          ALPHABETIC TEST PRINT              *
+ ;                *                                             *
+ ;                ***********************************************
+ ;	
+END I $P'=%TRM W #
+ D ^LIB0111
+ Q
+ERROR D ^LIB0015("AZTP")
+ Q

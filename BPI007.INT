@@ -1,0 +1,31 @@
+ROUTINE BPI007 [Type=INT]
+BPI007 ; LOOKUP ICD9 CODES BY NUMBER [ 04/25/2001  2:23 PM ]
+ ; INTERPATH - RH
+ ; 4/95
+ ;
+FLASH K  S $ZT="ERROR^BPI007"
+ S VAR(1)="LOOKUP ICD9 CODES BY NUMBER" D ^LIB0010
+ S $P(DSH,"-",81)=""
+ ;
+START R !!,"Enter Code: ",ICD I ICD="" Q
+ I ICD'["." S ICD=ICD_"."
+ S A=$P(ICD,".",1),B=$P(ICD,".",2) S:A?.N A=A-1,B=999 S:A'?.N B=B-.001 F I=1:1:(4-$L(A)) S A="0"_A
+ S ICD=A_"."_B,FLG=111 D PAGE F  S ICD=$O(^ICD("NUM",ICD)) Q:ICD=""  Q:FLG=999  D
+ .S DATA=^(ICD) S A=$P(ICD,".",1),B=$P(ICD,".",2) F I=1:1 Q:$E(A,1)'=0  I $E(A,1)=0 S A=$E(A,2,$L(A))
+ .W !,A,".",B D PRINT
+ .I $Y>19 W !!,"Co(N)tinue, (Q)uit " R ANS S:ANS["Q" FLG=999 Q:FLG=999  D PAGE
+ G START
+ 
+PRINT I $E(DATA,1)=" " S DATA=$E(DATA,2,$L(DATA)) G PRINT
+ I $L(DATA)<65 W ?10,DATA Q
+ I $L(DATA)>64,DATA'[" " W ?10,$E(DATA,1,65),! S DATA=$E(DATA,66,$L(DATA)) G PRINT
+ F B=65:-1:40 S F=$E(DATA,B) Q:F=" "
+ W ?10,$E(DATA,1,(B-1)),! S DATA=$E(DATA,B,$L(DATA)) G PRINT
+ Q
+ 
+PAGE W /ED(2),/CUP(1,1),?33,"ICD9 Codes"
+ W !!,"CODE",?10,"Description",!,DSH,!
+ Q
+ ;
+ERROR D ^LIB0015("BPI007")
+ Q

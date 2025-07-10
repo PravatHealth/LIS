@@ -1,0 +1,84 @@
+ROUTINE AMEND [Type=INT]
+AMEND	; Print list of Amended reports
+	; - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;Interpath Laboratory, Inc.
+	;Purpose / Description: Amended Report List
+	;Installed / Tested: <rhedrick><4/17/1998>
+	;Approved: R.Hedrick <4/17/1998>
+	;All Applicable Users Trained  <4/17/1998>
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;                    Modifications
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	; | 12/05/2006 | rhedrick | All Applicable Users Trained|Modifications Tested|Updated Format> 
+	;  
+FLASH	; Routine Setup
+	K  S $ZT="ERROR^AMEND",$P(DSH,"-",80)=""
+	;
+START	; Begin User Code
+	S VAR(1)="AMENDED REPORT UTILITY" D ^LIB0010 K (DSH)
+	I '$D(^FLG("AMEND")) W !!,"<< CONGRATULATIONS >> There are no new amended reports since the last print." H 3 Q
+	W !!,"(C)lean up, (P)rint: " R CP Q:CP=""  S CP=$$UP^LIB0044(CP) I "^C^P^"'[("^"_CP_"^") W /BEL," ???" G START
+	W ! D INT2^LIB0026 I '$D(HDAT) G START+2
+	W !!,"(A)ll, (S)elected Workcenters: " R AS G START+2:AS="" S AS=$$UP^LIB0044(AS) I "^A^S^"'[("^"_AS_"^") W /BEL," ???" G START+4
+	I AS="S" S VAR(1)="",VAR(2)="",VAR(3)=0 W !! D ^LIB0099(.VAR) F I=1:1 S WCT=$P(WCTS,"_",I) Q:WCT=""  S WCT(WCT)=""
+	I AS="S" W !!,"<< ALERT >> Test orders are not workcenter specific. Test order modifications",!,"are displayed by ordering location associated with the workcenter(s) chosen.",!!,"<cr.> to continue " R DUD
+	I CP="C" S WCT=$$GETWCT^LIB0030($J) I WCT'="AA" W /BEL," Restricted function"  G START+2
+	I CP="C" D CLEAN G START
+	I CP="P" D PRINT G START
+	Q
+	;
+CLEAN	I (+$H-HDAT)<91 W !!,"<< ERROR >> You cannot delete entries newer than 90 days old",!!,"<cr.> to continue: " R DUD G START
+	W !!,"<< WARNING >> You have  choosen to clean up the old entries, this step will",!,"DELETE the entries in the date range you have chosen."
+	W !!,"Are you SURE [Y/N]: " R ANS
+	S ANS=$$UP^LIB0044(ANS) I "^Y^N^"'[("^"_ANS_"^") W /BEL," ???" G CLEAN+2
+	I ANS'="Y" Q
+	S PNO="" F  S PNO=$O(^FLG("AMEND",PNO)) Q:PNO=""  D
+	.S TNO="" F  S TNO=$O(^FLG("AMEND",PNO,TNO)) Q:TNO=""  D
+	..S DATA=^FLG("AMEND",PNO,TNO,"INITIAL"),WCT=$P(DATA,"*",1)
+	..I AS="S",'$D(WCT(WCT)) Q
+	..S DATE="" F  S DATE=$O(^FLG("AMEND",PNO,TNO,"MODIFY",DT)) Q:DT=""  D
+	...S DATE=$P(DT,".",1) I DATE>LDAT,DATE<HDAT K ^FLG("AMEND",PNO,TNO,"MODIFY",DT)
+	..S DT="" I $O(^FLG("AMEND",PNO,TNO,"MODIFY",DT))="" K ^FLG("AMEND",PNO,TNO)
+	Q
+	;
+PRINT	; Printed Output
+	D ^LIB0110("P") W ! D ^LIB0017 S PNO="" F  S PNO=$O(^FLG("AMEND",PNO)),PFLG=0 Q:PNO=""  D
+	.S XP=PNO#100 I '$D(^L(XP,PNO)) Q
+	.S LC=$P($G(^L(XP,PNO,.5)),"*",3) I LC="" S (LC,DWC)="ERROR"
+	.I LC'="ERROR" S DWC=$P(^SYSTEM("LC",LC),"_",2)
+	.S TNO="" F  S TNO=$O(^FLG("AMEND",PNO,TNO)) Q:TNO=""  D
+	..S DATA=^FLG("AMEND",PNO,TNO,"INITIAL"),WCT=$P(DATA,"*",1),INI=$P(DATA,"*",2),COL=$P(DATA,"*",3)
+	..I AS="S" S QFLG=0 D  I QFLG Q
+	...I WCT'="" S WC=$P(^SYSTEM("WCT",WCT),"_",4) S:'$D(WCT(WC)) QFLG=1 Q
+	...I DWC="ERROR" Q
+	...I '$D(WCT(DWC)) S QFLG=1
+	..S XT=TNO#100,TNA=$P(^T2(XT,TNO,1),"[",1)
+	..S DT="" F  S DT=$O(^FLG("AMEND",PNO,TNO,"MODIFY",DT)) Q:DT=""  D
+	...S DATE=$P(DT,".",1) I '((DATE>LDAT)&(DATE<HDAT)) Q
+	...S DATA=^FLG("AMEND",PNO,TNO,"MODIFY",DT),INIT=$P(DATA,"*",1),CMT=$P(DATA,"*",2)
+	...I 'PFLG D  S PFLG=1
+	....S DUD=$$^LIB0033(PNO) W !!,"Pat #: ",PRN,?40,"Test: ",TNO," ",TNA
+	....S %DT=$P(COL,",",1),%TM=$P(COL,",",2) D ^LIB0011,^LIB0013
+	....W !,"Accessioned: ",%DAT4,"  ",%TIM2
+	....S WC=$S(WCT="":"N/A",1:WCT) S:$D(^SYSTEM("WCT",WC)) WC=$P(^SYSTEM("WCT",WC),"_",3) W ?40,"Workcenter: ",WC
+	...W !!?2,"Prev initials: ",$S(INI="":"N/A",1:INI)
+	...S %DT=$P(DT,".",1),%TM=$P(DT,".",2) F  Q:$L(%TM)>4  S %TM=%TM_0
+	...D ^LIB0011,^LIB0013
+	...W !?2,"Edit initials: ",INIT
+	...W ?40,"Edited: ",%DAT4,"  ",%TIM2
+	...S VAR(1)=5,VAR(2)=80,VAR(3)="RESPONSE: "_CMT
+	...W ! S DUD=$$^LIB0032(.VAR)
+	.I PFLG I DWC="ERROR" W !!,?30,"<< PATIENT DELETED >>" W !!,DSH Q
+	.I PFLG D
+	..S PFLG=0,XP=PNO#100,CN=.6000 F  S CN=$O(^L(XP,PNO,CN)) Q:CN=""!(CN>.6999)  D
+	...S DATA=^L(XP,PNO,CN),TYP=$P(DATA,"*",1) I TYP'="G" Q
+	...I 'PFLG W !!?30,"<< GENERAL COMMENTS >>" S PFLG=1
+	...S COM=$P(DATA,"*",3) W !!,COM
+	..W !!,DSH
+	;
+END	I $P'=%TRM W #
+	D ^LIB0111
+	Q
+	;
+ERROR	; Interpath Error Trap
+	D ^LIB0015("AMEND") Q

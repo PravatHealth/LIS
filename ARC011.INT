@@ -1,0 +1,127 @@
+ROUTINE ARC011 [Type=INT]
+ARC011 ; Archive file builder [ 11/25/2003  7:59 AM ]
+ ; 4/22/98
+ ; Interpath - RH
+ ; Removed code that cleaned up LKD,LKR when archiving (need to keep for cumsum)
+ ;
+FLASH 
+	Quit ; Placed here for caution....not sure why this is runing
+	S $ZT="ERROR^ARC011"
+ 	D ^LIB0042 D ^LIB0019
+ ;
+M S MIN=$P(^MA(.01),"*",1),MAX=$P(^MA(.01),"*",2)
+ S XP="" F  S XP=$O(^M(XP)) Q:XP=""  D
+ .S PNO="" F  S PNO=$O(^M(XP,PNO)) Q:PNO=""  L  D
+ ..I PNO>MAX Q
+ ..K (%TOD,%TOT,%TDT,XP,PNO,MAX,MIN,NSPACE) S PNA=^M(XP,PNO,.01),DOC=^(.02),STA=$G(^(.8)),DNO=$Piece(DOC,"#",1),MS=^DOC(DNO,7),TZ=^(42)
+ ..Q:STA=""  S RDAT=+STA I (%TOD-RDAT)<30 Q
+ ..S LEV="" F  S LEV=$O(^M(XP,PNO,LEV)) Q:LEV=""  Q:LEV>.99  D
+ ...S DATA=^M(XP,PNO,LEV) I LEV=.02 S DATA=DATA_"#"_MS_"#"_TZ
+ ...S ^MA(PNO,LEV)=DATA
+ ..D MREQ S TNO=.99 F  S TNO=$O(^M(XP,PNO,TNO)) Q:TNO=""  S ^MA(PNO,TNO)=^M(XP,PNO,TNO) D
+ ...S CNO="" F  S CNO=$O(^M(XP,PNO,TNO,CNO)) Q:CNO=""  S XC=CNO#100,LID=^T2(XC,CNO,84),^MA(PNO,TNO,CNO)=^M(XP,PNO,TNO,CNO)_"*"_LID D
+ ....I CNO=4090 D SEN Q
+ ....S RLEV="" F  S RLEV=$O(^M(XP,PNO,TNO,CNO,RLEV)) Q:RLEV=""  S ^MA(PNO,TNO,CNO,RLEV)=^M(XP,PNO,TNO,CNO,RLEV)
+ ..K ^M(XP,PNO),^ACP("INST",PNO)
+ ..S ^RobLog("ARC011","MA",PNO)=$ZDT($H,3,1)
+ ..S ^MODIFIED("PNO",PNO)="" S ^MODIFIED("MSSQL","PNO",PNO)=""
+ ..I $G(^LKN(PNO))="" S ERR(1)="ARC011 "_PNO,ERR(2)="Incorrect ^LKN entry building archival data... please correct (MICRO)",ERR(3)=PNO D ^LIB0016(.ERR) Q
+ ..S $P(^LKN(PNO),"^",1)="MAF"
+ 
+ ;
+L S MIN=$P(^LA(.01),"*",1),MAX=$P(^LA(.01),"*",2)
+ S XP="" F  S XP=$O(^L(XP)) Q:XP=""  D
+ .S PNO="" F  S PNO=$O(^L(XP,PNO)) Q:PNO=""  L  D
+ ..I PNO>MAX Q
+ ..K (%TOT,%TDT,%TOD,XP,PNO,MAX,MIN,NSPACE) S PNA=^L(XP,PNO,.01),DOC=^(.02),STA=$G(^(.8)),AGSX=^(.06),AMB=^(.1),DNO=$Piece(DOC,"#",1),MS=^DOC(DNO,7),TZ=^(42)
+ ..S AG=$P(AGSX,"*",1),SX=$P(AGSX,"*",2),SA=SX_AMB S:AG="" AG="N/G"
+ ..S SA=$S(SA="MO":30,SA="MI":31,SA="FO":32,SA="FI":33,1:SA)
+ ..Q:STA=""  S RDAT=+STA I (%TOD-RDAT)<30 Q
+ ..S LEV="" F  S LEV=$O(^L(XP,PNO,LEV)) Q:LEV=""  Q:LEV>.99  D
+ ...S DATA=^L(XP,PNO,LEV) I LEV=.02 S DATA=DATA_"#"_MS_"#"_TZ
+ ...S ^LA(PNO,LEV)=DATA
+ ..D LREQ,LCOM
+ ..S TNO=".99" F  S TNO=$O(^L(XP,PNO,TNO)) Q:TNO=""  D LTST
+ ..K ^L(XP,PNO),^ACP("INST",PNO)
+ ..S ^MODIFIED("PNO",PNO)="" S ^MODIFIED("MSSQL","PNO",PNO)=""
+ ..S ^RobLog("ARC011","LA",PNO)=$ZDT($H,3,1)
+ ..I $G(^LKN(PNO))="" S ERR(1)="ARC011 "_PNO,ERR(2)="Incorrect ^LKN entry building archival data... please correct (LAB)",ERR(3)=PNO D ^LIB0016(.ERR) Q
+ ..S $P(^LKN(PNO),"^",1)="LAF"
+ Q
+ ;
+LTST ; Build TNO lines. Normal ranges are establised based on .8 level in ^L
+ S XT=TNO#100,TDAT=^(TNO),TNA=$P(TDAT,"*",1),RSL=$P(TDAT,"*",3),INI=$P(TDAT,"*",4),WCT=$P(TDAT,"*",5)
+ K T F LEV=20,22,26,27,28,29,30,31,32,33,84 D
+ .I $O(^T2(XT,TNO,LEV,RDAT))="" S T(LEV)=^T2(XT,TNO,LEV) Q
+ .S DATE=$O(^T2(XT,TNO,LEV,RDAT)),T(LEV)=^T2(XT,TNO,LEV,DATE)
+ K NRNG,NML,NDAT,EXP F I=1:1:4 S NRNG(I)=""
+ S TNML=$G(T(SA)),UNT=T(20),LID=T(84) I TNML'="",SA'="XX" I ((AG?.N)!(AG?1".".N)!(AG?.N1".".N)) D
+ .F J=1:1 S NDAT=$P(TNML,";",J) Q:NDAT=""  S A=$P(NDAT,"=",1),NML(A)=$P(NDAT,"=",2)
+ .S NRNG(1)="" S AGE=$O(NML(AG-.0001)) I AGE'="" S NRNG(1)=NML(AGE)
+ I NRNG(1)="" D
+ .S NRNG(1)=T(26) S:T(27)'="" NRNG(2)=T(27) S:T(28)'="" NRNG(3)=T(28) S:T(29)'="" NRNG(4)=T(29)
+ S EXP="" I RSL[" HI"!(RSL[" LO") D  G LTSET
+ .I RSL[" HI" S EXP="H",RSL=$P(RSL," HI",1) Q
+ .I RSL[" LO" S EXP="L",RSL=$P(RSL," LO",1) Q
+ I NRNG(1)["-" D
+ .I '((RSL?.N)!(RSL?.N1".".N)) Q
+ .S LN=$P(NRNG(1),"-",1),HN=$P(NRNG(1),"-",2) I '((RSL>HN)!(RSL<LN)) Q
+ .I '((LN?.N)!(LN?.N1".".N)) Q
+ .I '((HN?.N)!(HN?.N1".".N)) Q
+ .I RSL<LN S EXP="L" Q
+ .I RSL>HN S EXP="H" Q
+LTSET S T(22)=$TR(T(22),"*","^"),^LA(PNO,TNO)=TNA_"*"_RSL_"*"_EXP_"*"_UNT_"*"_NRNG(1)_"^"_NRNG(2)_"^"_NRNG(3)_"^"_NRNG(4)_"*"_INI_"*"_WCT_"*"_LID_"*"_T(22)
+ Q
+ ;
+LREQ S REQ=^L(XP,PNO,.03) F I=1:1 S RNO=$P(REQ,"*",I) Q:RNO=""  D
+ .S RXT=RNO#100 I $O(^T2(RXT,RNO,1,RDAT))="" S TNA=$P(^T2(RXT,RNO,1)," [",1) G RNO
+ .S DATE=$O(^T2(RXT,RNO,1,RDAT)),TNA=$P(^T2(RXT,RNO,1,DATE)," [",1)
+RNO .I $D(^DUTL("TNA",DNO,RNO)) S TNA=$P(^(RNO)," [",1)
+ .S R(RNO)=TNA I $O(^T2(RXT,RNO,7,RDAT))="" S INC=^T2(RXT,RNO,7) S:^(8)'="" INC=^(8) G RNO+3
+ .S DATE=$O(^T2(RXT,RNO,7,RDAT)),INC=^T2(RXT,RNO,7,DATE) I $D(^T2(RXT,RNO,8,DATE)) I ^(DATE)'="" S INC=^(DATE)
+ .S ^LA(PNO,.03,RNO)=TNA_"^"_INC
+ .I INC["/" D
+ ..S CNO="" F II=1:1 S CNO=$P(INC,"/",II) Q:CNO=""  D
+ ...Q:CNO'?4.5N  S CXT=CNO#100 I $O(^T2(CXT,CNO,1,RDAT))="" S TNA=$P(^T2(CXT,CNO,1)," [",1) G CNO
+ ...S DATE=$O(^T2(CXT,CNO,1,RDAT)),TNA=$P(^T2(CXT,CNO,1,DATE)," [",1)
+CNO ...I $O(^T2(CXT,CNO,7,RDAT))="" S CINC=^T2(CXT,CNO,7) S:^(8)'="" CINC=^(8) G CNO+2
+ ...S DATE=$O(^T2(CXT,CNO,7,RDAT)),CINC=^T2(CXT,CNO,7,DATE) I $D(^T2(CXT,CNO,8,DATE)) I ^(DATE)'="" S CINC=^(DATE)
+ ...S ^LA(PNO,.03,CNO)=TNA_"^"_CINC
+ Q
+ ;
+LCOM S CN=.6000 F  Q:$O(^L(XP,PNO,CN))>.6999  S CN=$O(^L(XP,PNO,CN))
+ S CMTNO="" F  S CMTNO=$O(R(CMTNO)) Q:CMTNO=""  D ACMT
+ S CTNO="" F  S CTNO=$O(C(CTNO)) Q:CTNO=""  D
+ .S CMTNO="" F  S CMTNO=$O(C(CTNO,CMTNO)) Q:CMTNO=""  D ACMT
+ Q
+ ;
+ACMT I '$D(^COM("AUTOCOM",CMTNO)) Q
+ I $D(^COM("AUTOCOM",CMTNO,DNO)) D  Q
+ .S LEV="" F  S LEV=$O(^COM("AUTOCOM",CMTNO,DNO,LEV)) Q:LEV=""  S CMT=^(LEV),CN=CN+.0001,^LA(PNO,CN)="T*"_CMTNO_"*"_CMT
+ I $D(^COM("AUTOCOM",CMTNO,"ALL")) D
+ .S LEV="" F  S LEV=$O(^COM("AUTOCOM",CMTNO,"ALL",LEV)) Q:LEV=""  S CMT=^(LEV),CN=CN+.0001,^LA(PNO,CN)="T*"_CMTNO_"*"_CMT
+ Q
+ ;
+MREQ S REQ=^M(XP,PNO,.03) F I=1:1 S RNO=$P(REQ,"*",I) Q:RNO=""  D
+ .S RXT=RNO#100 I $O(^T2(RXT,RNO,1,RDAT))="" S TNA=$P(^T2(RXT,RNO,1)," [",1) G MRNO
+ .S DATE=$O(^T2(RXT,RNO,1,RDAT)),TNA=$P(^T2(RXT,RNO,1,DATE)," [",1)
+MRNO .I $D(^DUTL("TNA",DNO,RNO)) S TNA=$P(^(RNO)," [",1)
+ .S ^MA(PNO,.03,RNO)=TNA
+ Q
+ ;
+SEN S RLEV="" F  S RLEV=$O(^M(XP,PNO,TNO,CNO,RLEV)) Q:RLEV=""  D
+ .S DATA=^M(XP,PNO,TNO,CNO,RLEV),ORG=$P(DATA,"$",1),SRI=$P(DATA,"$",2),INI=$P(SRI,"@",1),SE=$P(SRI,"@",2),IN=$P(SRI,"@",3),RE=$P(SRI,"@",4)
+ .F J="SE","IN","RE" D
+ ..F I=1:1 S S=$P(@J,"*",I) Q:S=""  D
+ ...S SNO=$P(S,"_",1),SNA=^MICRO("SEN","DRUG",SNO),$P(S,"_",1)=SNA,$P(@J,"*",I)=S
+ .S ^MA(PNO,TNO,CNO,RLEV)=ORG_"$"_INI_"@"_SE_"@"_IN_"@"_RE
+ Q
+ ;
+END D ^LIB0042 ;S ^ERR(NSPACE,"ARC011",$H)="ARC011 Completed Successfully"
+ S ERR(1)="ARC011",ERR(2)="ARC011 COMPLETED SUCCESSFULLY",ERR(3)="" D ^LIB0016(.ERR)
+ Q
+ ;
+ERROR
+ ;D ^%ET
+ D ^LIB0015("ARC011") 
+ Q

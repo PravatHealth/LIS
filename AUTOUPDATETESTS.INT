@@ -1,0 +1,22 @@
+ROUTINE AUTOUPDATETESTS [Type=INT]
+AUTOUPDATETESTS	 ;<PGM Name>
+ ;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ ;Interpath Laboratory, Inc.
+ ;Purpose / Description:
+ ;Installed / Tested: <pgmr> <date>
+ ;Approved: R.Hedrick <date>
+ ;All Applicable Users Trained  <date>
+ ;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ ;INPUT VARIABLES:
+ ;OUTPUT VARIABLES:
+ ;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ ;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ ;                    Modifications
+ ;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ ;   Date     | pgmr  |All Applicable Users Trained|Modifications Tested|Description
+	D ##class(Interpath.TestFile).AutoUpdateTestFiles() h 2
+	zn "labclaspecreqr"
+	D ##class(TestFile.TestFileDisplay).BuildHTMIndexFiles() h 2
+	D ##class(TestFile.TestFileDisplay).BuildHTMTestFiles() h 1
+	zn "labcla"
+	Q

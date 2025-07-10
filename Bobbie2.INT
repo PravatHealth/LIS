@@ -1,0 +1,380 @@
+ROUTINE Bobbie2 [Type=INT]
+ACP
+	Set cnt=""
+	S PNO="" F  S PNO=$O(^ACP("INST",PNO)) Q:PNO=""  D
+	.If $D(^ACP("INST",PNO,3)) Set tmp=^ACP("INST",PNO,3)
+	.If '$D(^ACP("INST",PNO,3)) Quit
+	.If tmp'="" Quit
+	.Set cnt=cnt+1
+	.If tmp="" Write PNO Set ^CacheTemp.Bobbie("ACP",$h,cnt)=PNO
+	Quit
+ACMT
+	S COM="AUTOCOM" F  S COM=$O(^COM(COM)) Q:COM=""  D
+	.If COM="COVIDAUTOMCOM" Quit
+	.W COM ,!
+	.S DCOD=$E(COM,1,2),C(DCOD)="",COM=DCOD_9999
+	;W DCOD,COM ,!
+	Q
+REFNTE
+	Set XP="" For  Set XP=$O(^L(XP)) Q:XP=""  Do
+	.Set PNO=202101000001 For  Set PNO=$O(^L(XP,PNO)) Q:PNO=""  Do
+	..If '$D(^L(XP,PNO,.7)) Quit
+	..Set Data=^L(XP,PNO,.7)
+	..If $P(Data,"*",1)="G" Set ^CacheTemp.Bobbie("REFNTE",PNO)=""
+	Quit
+RQNOTIMESET
+	Set RTE=999 F  SET RTE=$O(^RQ(RTE)) Q:RTE=""  Do
+	.If $D(^RQ(RTE,"SCHEDULED")) Quit
+	.Write RTE ,!
+	Quit
+Urgency
+	Set XP="" For  Set XP=$O(^L(XP)) Q:XP=""  Do
+	.Set PNO=202001000001 For  Set PNO=$O(^L(XP,PNO)) Q:PNO=""  Do
+	..Set Data=^L(XP,PNO,.12)
+	..If Data'="S" Quit
+	..If Data="S" Write PNO
+	Quit
+TimeStamp
+	 Set PNO=201910092715
+	 Set XP=PNO#100
+	 Set TNO=1010
+	 Set TimeStamp=""
+	 S DataTimeStamp=^L(XP,PNO,TNO) 
+     Set TimeStamp=$P(DataTimeStamp,"*",7)
+     If TimeStamp'="" Set TimeStamp=TimeStamp_"!"_$H
+     If TimeStamp="" Set TimeStamp="!"_$H 
+     Set $P(DataTimeStamp,"*",7)=TimeStamp
+     Set ^L(XP,PNO,TNO)=DataTimeStamp
+     Quit
+StartTime
+	Set DNO="" For  Set DNO=$O(^HL7("DNO",DNO)) Q:DNO=""  Do
+	.Quit:DNO="XLT"
+	.Set Data=^HL7("DNO",DNO)
+	.;If $P(Data,"_",5)'=3600 Quit
+	.;If $P(Data,"_",5)'=18800 Quit
+	.;If $P(Data,"_",6)'=85500 Quit
+	.If $P(Data,"_",5)'=18880 Quit
+	.;If $P(Data,"_",6)'=85550 Quit
+	.;If $P(Data,"_",6)'=82800 Quit
+	.Write DNO ,!
+	.;Set $P(^HL7("DNO",DNO),"_",5)=60
+	.Set $P(^HL7("DNO",DNO),"_",5)=18000
+	.;Set $P(^HL7("DNO",DNO),"_",6)=86350
+	Quit
+	
+Asterisk
+	Set TNO="2225"
+	Set R="NEGATIVE"
+	Set AST=$$AsteriskEvaluation^SUB034(TNO,R)
+	Write "AST="_AST
+	Quit
+
+Submit(TNO,SubmitOID,flgDebug); Define variables for the perffered Submittion
+	New (TNO,SubmitOID,flgDebug)
+	set flgDebug=0
+	;Build Prefered Submition Requirements
+	If flgDebug Write !,"Start Processing Submit Requirements for SubmitOID "_SubmitOID
+	If flgDebug Write !,"Start Preferred Submit Requirements"
+	Set Submit=##class(TestFile.Submit).%OpenId(9728)
+	For I=1:1:Submit.PreferredSubmit.Count()  Do
+	.Set PreferredSubmit=Submit.PreferredSubmit.GetAt(I)
+	.If flgDebug Write !,"Start Preferred Submit Requirements OID "_I
+	.I '$D(PreferredSubmit) Quit
+	.Set ChangedBy=$username
+	.Set Code=9728_"PS"_I
+	.Set Preferred=1
+	.Set Phase="SUBMIT"
+	.Set Quantity=PreferredSubmit.PrefSubQuantity
+	.Set Volume=PreferredSubmit.PrefSubVolume_" "_PreferredSubmit.PrefSubUnit
+	.Set SpecimenType=PreferredSubmit.PrefSubSpecType
+	.Set ContainerID=""
+	.Set ContainerDescription=""
+	.If PreferredSubmit.PrefSubContainer'=""  Do
+	..If PreferredSubmit.PrefSubContainer'?.N Set ContainerDescription=PreferredSubmit.PrefSubContainer
+	..Write "ContainerDescription 23 "_ContainerDescription ,!
+	..If $Extract(ContainerDescription,1,1)=" " Set ContainerDescription=$Replace($Extract(ContainerDescription,1,1)," ","")
+	..Write "ContainerDescription 23 "_ContainerDescription ,!
+	.If PreferredSubmit.PrefSubTranTube["Y" Set TransportationTube=1
+	.Write PreferredSubmit.PrefSubContainer
+	.Set tSC=PreferredSubmit.%Close()
+	Quit	
+	
+
+
+
+
+
+
+GetProcedureID(ProcedureCode,flgDebug)
+	New (ProcedureCode,flgDebug)
+	Set ProcedureID=""
+	If flgDebug w !!,"Get ID for Procedure Code:",ProcedureCode
+	Set sql="SELECT ID FROM LIS_SQL.tblProcedure WHERE Code='"_ProcedureCode_"'"
+	Set rset=##class(%ResultSet).%New()
+	Set sc=rset.Prepare(sql) I 'sc Q -1 ; w !!,"sql Prepare() failed! ",sc,! 
+	Set sc=rset.Execute() I 'sc Q -2  ;w !!,"sql Execute() failed! ",sc,! Q -2
+	If rset.Next() S ProcedureID=rset.Data("ID")
+	;Debug Info
+	If flgDebug Do
+	.Write !,"============Prepare==========",!
+	.Write sql	
+	.Write !,"============================="
+	Kill tStatement,rset,qStatus,SQL
+	If flgDebug w !,"ProcedureID: "_ProcedureID
+	If ProcedureID="" S ERR(1)="IntegrateTestFile.mac",ERR(2)="Unable to get ProcedureId for "_ProcedureCode,ERR(3)="" D ^LIB0016(.ERR) Quit ProcedureID
+	Quit ProcedureID
+	;
+UpdatePrintOrder(ProcedureID,ComponentID,PrintOrdercnt,flgDebug)
+	New (ProcedureID,ComponentID,PrintOrdercnt,flgDebug)
+	If ProcedureID="" Quit 1
+	;Write PrintOrdercnt
+	If flgDebug Write !, "Entering Sub-Routine UpdatePrintOrder"
+	Set SQL(1)="INSERT INTO LIS_SQL.tblProcedure_Component_PrintOrder "
+	Set SQL(2)="(ProcedureID,ProcedureComponentID,PrintOrder"
+	Set SQL(3)=") "
+	Set SQL(4)="VALUES(?,?,?)"
+	Set SQL=4
+	;Debug Info
+	If flgDebug Do
+	.Write !!,"===============Prepare==================",!
+	.Set LEV="" For  Set LEV=$Order(SQL(LEV)) Quit:LEV=""  Do
+	..Write SQL(LEV)	
+	.Write !,"=================================",!
+	.Write !,"==============Execute===================",!
+	.Set Execute=ProcedureID_","_ComponentID_","_PrintOrdercnt
+	.Write Execute	
+	.Write !,"=================================",!
+	;
+	Set tStatement=##class(%SQL.Statement).%New(1)
+	Set qStatus=tStatement.%Prepare(.SQL) I 'qStatus Set ^CacheTemp.IntegrateTestFile("UpdateConversion","ERROR",$ZDT($h,3,1),ProcedureID)="Prepare Error: "_qStatus S ERR(1)="IntegrateTestFile.mac_ProcedureID:"_ProcedureID, ERR(2)="TestFile Integration to SQL -  Prepare Error",ERR(3)=qStatus Do ^LIB0016(.ERR) Quit 0
+	Set rset=tStatement.%Execute(ProcedureID,ComponentID,PrintOrdercnt) I rset.SQLCODE'=0 Set ^CacheTemp.IntegrateTestFile("UpdateConversion","ERROR",$ZDT($h,3,1),ProcedureID)="Prepare Error: "_rset.%Message S ERR(1)="^IntegrateTestFile.mac_ProcedureID:"_ProcedureID, ERR(2)="TestFile Integration to SQL -  Prepare Error",ERR(3)=rset.%Message Do ^LIB0016(.ERR) Quit 0
+	If flgDebug Write !, "Exiting Sub-Routine UpdatePrintOrder"
+	Kill tStatement,rset,qStatus,SQL
+	Quit 1
+FIND
+	Set XP="" F  Set XP=$O(^L(XP)) Q:XP=""  Do
+	.Set PNO="" F  Set PNO=$O(^L(XP,PNO)) Q:PNO=""  Do
+	..If PNO<201901056187 Quit
+	..Set Data=^L(XP,PNO,.03)
+	..If Data'[1486 Quit
+	..Write PNO
+	Quit
+CLEANRQ
+	Set flgCNT=0
+	Set TYP="" For  Set TYP=$O(^RQ("LIST READY",334,TYP)) Quit:TYP=""  Do
+	.Set DNO="" For  Set DNO=$O(^RQ("LIST READY",334,TYP,DNO)) Quit:DNO=""  Do
+	..Set PNO="" For  Set PNO=$O(^RQ("LIST READY",334,TYP,DNO,PNO)) Quit:PNO=""  Do
+	...Set Data=^RQ("LIST READY",334,TYP,DNO,PNO)
+	...Set XP=PNO#100
+	...If $D(^L(XP,PNO)) Set Complete=^L(XP,PNO,.8)
+	...If $D(^M(XP,PNO)) Set Complete=^M(XP,PNO,.8)
+	...If Complete="" Quit
+	...IF Complete'="" Kill ^RQ("LIST READY",334,TYP,DNO,PNO) W Data,! Set flgCNT=flgCNT+1
+	Write flgCNT
+	Quit
+STATUS
+	S TNO=2754
+	S XT=TNO#100
+	S ResultDate=64854
+	F LEV=1,7,20,26,30,32,37,84 D
+	.S T(LEV)=^T2(XT,TNO,LEV)
+	.S DATE=$O(^T2(XT,TNO,LEV,ResultDate)) I DATE'="" S T(LEV)=^T2(XT,TNO,LEV,DATE)
+	W
+	Quit
+HDEXP
+	S sql="SELECT LIS.cPatient.PNO AS PNO "
+ 	S sql=sql_",ComponentCode "
+ 	S sql=sql_",ComponentName  "
+ 	S sql=sql_",LIS.cPatientClinical.Result ComponentResult "
+ 	S sql=sql_",HealthDept.cHealthDeptReport.PNO AS HDRReportedPNO "
+ 	S sql=sql_"FROM LIS.cPatientClinical "
+ 	S sql=sql_"LEFT OUTER JOIN LIS.cPatient ON LIS.cPatientClinical.Patient=LIS.cPatient.ID "
+ 	S sql=sql_"INNER JOIN HealthDept.cHealthDeptReportRules ON LIS.cPatientClinical.ComponentCode=HealthDept.cHealthDeptReportRules.ProcedureCode "
+ 	S sql=sql_"FULL JOIN HealthDept.cHealthDeptReport ON LIS.cPatient.PNO=HealthDept.cHealthDeptReport.PNO "
+ 	S sql=sql_"WHERE Patient->PNO>"_^PNO($H-45)_" "  ; GET THE OLDEST PNO FROM 45 DAYS AGO
+ 	S sql=sql_"AND HealthDept.cHealthDeptReport.PNO is NULL "
+ 	S sql=sql_"AND HealthDept.cHealthDeptReportRules.Active='1'"
+ 	S sql=sql_"GROUP BY "
+ 	S sql=sql_"LIS.cPatientClinical.ID "
+ 	S sql=sql_",LIS.cPatient.PNO "
+ 	S sql=sql_",ComponentCode "
+ 	S sql=sql_",ComponentName "
+ 	S sql=sql_",HealthDept.cHealthDeptReport.PNO "
+ 	K ^CacheTemp.Bobbie("HealthDept.cHealthDeptReport","ExceptionList") ; clear the temp table
+ 	S rset=##class(%ResultSet).%New()
+ 	S sc=rset.Prepare(sql) I 'sc W !,"PREPARE FAILED" Q   			; Prepare failed
+ 	S sc=rset.Execute() I 'sc W !,"EXECUTE FAILED" Q 	  			; Execute failed
+ 	WHILE rset.Next() 
+ 	{
+		; build entry in a temp staging global. this is required because I can't call a 2nd query from within a query
+		; IF A RESULT IS ON FILE AND THE RESULT IS NULL - SKIP IT FOR NOW SKIP IF RESULT IS NULL
+		I $D(^HL7("RESULT",rset.Data("PNO"),rset.Data("ComponentCode")))  I rset.Data("ComponentResult")'="" S ^CacheTemp.Bobbie("HealthDept.cHealthDeptReport","ExceptionList",rset.Data("PNO"),rset.Data("ComponentCode"))=rset.Data("ComponentResult")
+ 	}
+ 	Quit
+CheckResultDT
+	Set CNT=0
+	Set XP="" For  Set XP=$O(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$O(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set FLG=0
+	..Set Comp= $Get(^L(XP,PNO,.8))
+	..If Comp="" Quit
+	..Set TNO="999" For  Set TNO=$O(^L(XP,PNO,TNO)) Quit:TNO=""  Do
+	...Set Data=^L(XP,PNO,TNO)
+	...If $P(Data,"*",3)="" Quit
+	...If $P(Data,"*",6)="" Set FLG=99 ;Write PNO_"^"_TNO ,! ;R DUD
+	..If FLG=99 Set CNT=CNT+1 
+	Write CNT
+	Quit
+UpdateResultDT
+	Set XP="" For  Set XP=$O(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$O(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set Comp= $Get(^L(XP,PNO,.8))
+	..If Comp="" Quit
+	..Set TNO="999" For  Set TNO=$O(^L(XP,PNO,TNO)) Quit:TNO=""  Do
+	...Set Data=^L(XP,PNO,TNO)
+	...If $P(Data,"*",3)="" Quit
+	...If $P(Data,"*",6)="" Do
+	....;Write PNO_"^"_TNO ,! ;R DUD
+	....Set $P(^L(XP,PNO,TNO),"*",6)=Comp
+	Quit
+CheckDrugs
+	;Set PNO=201711000117 ;201711001375
+	Set PNO=201710078447
+	Set XP=PNO#100
+	Set TNO=999 F  Set TNO=$O(^M(XP,PNO,TNO)) Quit:TNO=""  Do
+	.Set DrugList=$Get(^M(XP,PNO,TNO,4090,1))
+	.Set DrugList1=$P(DrugList,"@",2)
+	.Set DrugList2=$P(DrugList,"@",3)
+	.Set DrugList3=$P(DrugList,"@",4)
+	.Set DrugCNT=0
+	.Set Drug="" F i=1:1 Set Drug=$P(DrugList1,"*",i) Quit:Drug=""  Do
+	..Set DrugCNT=DrugCNT+1
+	..Write Drug ,!
+	.Set Drug="" F i=1:1 Set Drug=$P(DrugList2,"*",i) Quit:Drug=""  Do
+	..Set DrugCNT=DrugCNT+1
+	..Write Drug ,!
+	.Set Drug="" F i=1:1 Set Drug=$P(DrugList3,"*",i) Quit:Drug=""  Do
+	..Set DrugCNT=DrugCNT+1
+	..Write Drug ,!
+	Write DrugCNT
+	Quit
+RQFAX
+	S DRN="" F  S DRN=$O(^RP(DRN)) Q:DRN=""  D
+	.S DNO="" F  S DNO=$O(^RP(DRN,DNO)) Q:DNO=""  D
+	..S PNO="" F  S PNO=$O(^RP(DRN,DNO,PNO)) Q:PNO=""  D
+	...S DATA=^RP(DRN,DNO,PNO) I $P(DATA,"*",1)'="P" Write PNO ,!
+	D ^LIB0019
+	W
+	Q
+RQSET
+ S ^CacheTemp.Bobbie("LIST READY",DRN,TYP,DNO,PNO)=PNA_"*"_PRN_"*"_DAT Q
+ 
+UPDATEORDERRETENTION
+ 	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+ 	.If ^DOC(DNO,120)="" D
+ 	..Write DNO_"- OrderRetention "_^DOC(DNO,120)_" ^ "
+	 Quit
+CHECKFAXROUTES
+ 	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+ 	.If ^DOC(DNO,45)="0*99" D
+ 	..If ^DOC(DNO,6)>999 If  Write DNO_"- FaxRoute "_^DOC(DNO,6)_" ^ "
+	 Quit
+DI
+	Set Status="" For  Set Status=$O(^PROC("DI",Status)) Quit:Status=""  Do
+	.Set PNO="" For  Set PNO=$O(^PROC("DI",Status,PNO)) Quit:PNO=""  Do
+	..Set TNO="" For  Set TNO=$O(^PROC("DI",Status,PNO,TNO)) Quit:TNO=""  Do
+	...Set LEV="" For  Set LEV=$O(^PROC("DI",Status,PNO,TNO,LEV)) Quit:LEV=""  Do
+	....Set ID=$E(PNO,3,12)
+	....Set ID2=$E($P(^PROC("DI",Status,PNO,TNO,LEV),"_",1),1,10)
+	....;If ID2'=ID Write "ID="_ID_" ID2="_ID2_" TNO="_TNO_" Status="_Status ,! Quit
+	....If ID2'=ID Write PNO ,! Quit
+	Quit
+	
+Orders
+	Set Order="OP 0001" F  Set Order=$O(^W("HL7ORDER","ORNO",Order))  Quit:Order=""  Do
+	.Set Data=$Get(^W("HL7ORDER","ORNO",Order,1))
+	.If $P($P(Data,"|",13),"^",1)?10N  Do
+	..Write Order_"_"_$P(Data,"|",12) ,!
+	..Set $P(^W("HL7ORDER","ORNO",Order,1),"|",13)=$P(Data,"|",12) Write $P(^W("HL7ORDER","ORNO",Order,1),"|",13) ,! R DUD
+	Quit
+Printers
+	D ^LIB0110("P")
+	Set Printer=""
+	For I=1:1 Set Printer=$O(^SYSTEM("DEVICE","PRINTERS",Printer)) Quit:Printer=""  DO
+	.Set Data=$G(^SYSTEM("DEVICE","PRINTERS",Printer))
+	.Set IPAddress=$P(Data,"_",1)
+	.Set Location=$P(Data,"_",8)
+	.Set Location=$G(^SYSTEM("LC",Location))
+	.Set LocNeum=$P(Location,"_",5)
+	.Set Location=$P(Location,"_",1)
+	.Set Description=$P(Data,"_",4)
+	.Set Type=$P(Data,"_",5)_" _ "_$P(Data,"_",7)
+	.Write IPAddress_"^"_LocNeum_"^"_Location_"^"_Printer_"^"_Description_"^"_Type,!
+	D ^LIB0111
+	Quit
+	
+TEST
+	Set CN=$O(^M(XP,PNO,TNO,CNO,""),-1)
+	Write CN
+	
+	
+TESTDNOTRANSLATION
+	Set RDNO=""
+	Set TBL="99FMRI"
+	Set VAR="BobbieMcGill"
+	Set VAR=$$UP^LIB0044(VAR)
+	Set Trans="" For  Set Trans=$Order(^HL7("DNO","XLT",TBL,"IN",Trans)) Quit:Trans=""  Do
+	.S TransRDNO=$$UP^LIB0044(Trans)
+	.If VAR=TransRDNO S RDNO=$P($G(^HL7("DNO","XLT",TBL,"IN",Trans)),"_",1) Quit
+	Write RDNO
+	Quit
+	
+COMMENTS
+	Set PNO="201605034293"
+	Set CommentString="THIS IS SECOND COMMENT^THIS IS 4TH COMMENT^THIS IS 5"
+	Set NWCMT="" For I=1:1 Set NWCMT=$P(CommentString,"^",I) Quit:NWCMT=""  Do
+	.Set CMTFLG=1
+	.Set XP=PNO#100
+	.If $D(^M(XP,PNO,.66))  Do 
+	..Set ECOMMENT="" For Lev=1:1  Set ECOMMENT=$P(^M(XP,PNO,.66),"_",Lev) Quit:ECOMMENT=""  Do
+	...If ECOMMENT=NWCMT Set CMTFLG=0 Quit
+	..If CMTFLG=1 Set ^M(XP,PNO,.66)=^M(XP,PNO,.66)_"_"_NWCMT Quit
+	.If '$D(^M(XP,PNO,.66))  Do
+	..Set ^M(XP,PNO,.66)=NWCMT Quit
+	Quit
+	
+	
+TESTLOOP
+	Set Org="Day 4"
+	Set FLGORG=0
+	If $D(^CacheTemp.Bobbie("TESTLOOP"))  Do
+	.Set ExtRst="" For  Set ExtRst=$O(^CacheTemp.Bobbie("TESTLOOP",ExtRst))  Quit:ExtRst=""  Do
+	..Set ExtOrg=$P(^CacheTemp.Bobbie("TESTLOOP",ExtRst),"_",1)
+	..If ExtOrg=Org  Set FLGORG=1 Quit
+	.Set CN=$O(^CacheTemp.Bobbie("TESTLOOP",""),-1) 
+	.Set CN=CN+1
+	.If FLGORG=0 Set ^CacheTemp.Bobbie("TESTLOOP",CN)=Org_"This is a note" Quit
+	Quit
+	
+COUNTPNOBYCLIENT ;Count the number of accessions by client for a range of accession numbers
+	Set CNT=0
+	Set SPNO="201407000000"
+	Set EPNO="201506070018"
+	Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	.Set PNO=SPNO For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	..If PNO>EPNO Quit
+	..;Write "PNO="_PNO,!
+	..Set DNO=$P(^M(XP,PNO,.02),"#",1)
+	..If DNO="9001" Set CNT=CNT+1
+	..;Write "CNT="_CNT,!
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=SPNO For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If PNO>EPNO Quit
+	..;Write "PNO="_PNO,!
+	..Set DNO=$P(^L(XP,PNO,.02),"#",1)
+	..If DNO="9001" Set CNT=CNT+1
+	Write "CNT="_CNT,!
+	Quit
+	
+	
+

@@ -1,0 +1,228 @@
+ROUTINE Adam [Type=INT,Generated]
+FLASH ; 
+	;Quit
+	Kill
+	Set flgDebug=1
+	Set PNO=201801068996
+GetPatientData	;Get Patient Information
+	;
+	If flgDebug Write !,"Query the tblPatient table for all data on patient"
+	New SQLCODE
+	 ;---&sql(SELECT %NOLOCK * INTO :aPatient() FROM LIS_SQL.tblPatient WHERE PNO = :PNO)
+ 	 ;--- ** SQL PUBLIC Variables: %ROWCOUNT, %ROWID, %msg, PNO, SQLCODE, aPatient
+	do %0Ao
+	If SQLCODE=0 {
+			Set tSC=1
+			If flgDebug Write !,"Patient does exist on tblPatient"
+			}
+			Else {
+				Set tSC=0
+				If flgDebug Write !,"Patient Does not exist on tblPatient"
+				}
+	;
+	If 'tSC Quit ; If was not anything returned from tblPatient then quit. 
+	;
+	Merge ^CacheTemp.IntegrateAccessionTest("LOG","PNO",PNO)=aPatient
+	Quit
+GetClient
+	;Read New File
+ 	Set FILE="S:\Temp\CovidWCT.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do 
+ 	.Set DNO=$Piece(DATA,$C(9),1)
+ 	.If DNO="" Quit
+ 	.If '$D(^DOC(DNO)) Quit
+ 	.Set ClientID=""
+ 	. ;---&sql(SELECT %NOLOCK ID INTO :ClientID FROM LIS_SQL.tblClient WHERE Code = :DNO)
+  	. ;--- ** SQL PUBLIC Variables: %ROWCOUNT, %ROWID, %msg, ClientID, DNO, SQLCODE
+ 	.do %0Do
+ 	.If ClientID'="" Set ^CacheTemp.ADAM1("COVIDWCT",ClientID)="" Use $P Write !,ClientID
+ 	Close FILE
+ 	Quit
+ q
+%0AmAs1(%val) {
+	Quit:%val="" ""
+	If $zdth(%val,3,,,,,,,,"")'="" {
+		Set %val=$zdt($zdth(%val,3),3,,$l($p(%val,".",2)))
+	} elseif $zdth(%val,-1,,,,,,,,"")'="" {
+		Set %val=$zdt($zdth(%val,-1),3,,$l($p(%val,".",2)))
+	}
+	Quit $s(%val'[".":%val,1:$zstrip($zstrip(%val,">","0"),">","."))
+}
+%0Ao n sqldata57d,sqldata58d,sqldata59d,sqldata60d,sqldata61d,sqldata62d,sqldata55d
+ s $zt="%0Aerr"
+ s sqldata57d=$zu(115,2)
+ d:$zu(115,15) $system.ECP.Sync()
+ s sqldata55d=$g(PNO)
+ s SQLCODE=100
+ s sqldata61d=""
+ s sqldata58d="select T1.""ID"" AS C1,T1.""PNO"" AS C2,T1.""AccessionedBy"" AS C3,T1.""AccessionedDT"" AS C4,T1.""AccessionedLC"" AS C5,T1.""Age"" AS C6,T1.""Archived"" AS C7,T1.""AutoPrintLocation"" AS C8,T1.""ClientCode"" AS C9,T1.""ClientName"" AS C10,T1.""CollectedDT"" AS C11,T1.""CompletedDT"" AS C12,T1.""DOB"" AS C13,T1.""EMRID"" AS C14,T1.""FIL"" AS C15,T1.""FastingTime"" AS C16,T1.""FirstName"" AS C17,T1.""FullName"" AS C18,T1.""Gender"" AS C19,T1.""LOCDP"" AS C20,T1.""LastName"" AS C21,T1.""MI"" AS C22,T1.""MPI"" AS C23,T1.""PRN"" AS C24,T1.""PatientRoomNum"" AS C25,T1.""Prelim1DT"" AS C26,T1.""Prelim2DT"" AS C27,T1.""ProviderCode"" AS C28,T1.""ProviderName"" AS C29,T1.""SSN"" AS C30,T1.""Scanned"" AS C31,T1.""SpecimenType"" AS C32,T1.""StickerNum"" AS C33,T1.""TelcorAccount"" AS C34,T1.""TestRequests"" AS C35,T1.""ChangedDT"" AS C36,T1.""ChangedBy"" AS C37,T1.""Urgency"" AS C38,T1.""DrawType"" AS C39,T1.""PatientRegistrationID"" AS C40,T1.""Suffix"" AS C41,T1.""PatientUnit"" AS C42,T1.""PatientBed"" AS C43,T1.""SecondaryIdentifier"" AS C44,T1.""PatientRoom"" AS C45,T1.""IsFasting"" AS C46,T1.""MiddleName"" AS C47,T1.""CollectedDate"" AS C48,T1.""CollectedTime"" AS C49,T1.""LISCreatedDT"" AS C50,T1.""Active"" AS C51,T1.""RaceID"" AS C52,T1.""EthnicityID"" AS C53 FROM  ""LIS"".""tblPatient"" T1 where ((T1.""PNO"" = ?))"
+ s sqldata59d=$$GetConnection^%apiGTW("SQL02_LIS"),sqldata60d=%SQLGateway("-uv")&&$zbitget($zversion(0),1)
+ i sqldata59d="" s %msg="Connection 'SQL02_LIS': Can't get connection",SQLCODE=-221 ztrap "GWSQ"
+ i sqldata61d="" s sqldata61d=$zf(-5,%SQLGateway,5,sqldata59d)
+ i sqldata61d="" s sqldata59d=$$Reconnect^%apiGTW("SQL02_LIS") s sqldata61d=$zf(-5,%SQLGateway,5,sqldata59d) d:sqldata61d="" GWQError^%apiSQL("SQL02_LIS",222,"Allocate statement",sqldata59d,sqldata61d)
+ s sqldata62d=$zf(-5,%SQLGateway,$s(%SQLGateway("-uv"):37,1:3),sqldata61d,sqldata58d)
+ d:sqldata62d GWQError^%apiSQL("SQL02_LIS",223,"Prepare("_"select T1.""ID"" AS C1,T1.""PNO"" AS C2,T1.""Acces..."_")",sqldata59d,sqldata61d)
+ s sqldata62d=$zf(-5,%SQLGateway,8,sqldata61d,$lb(16),$lb(12),$lb(0),$lb(1),$lb(16))
+ d:sqldata62d GWQError^%apiSQL("SQL02_LIS",225,"Bind parameters",sqldata59d,sqldata61d)
+ s sqldata62d=$zf(-5,%SQLGateway,9,sqldata61d,$lb(sqldata55d),1)
+ s sqldata62d=$zf(-5,%SQLGateway,17,sqldata61d) s sqldata62d=$zf(-5,%SQLGateway,4,sqldata61d)
+ d:sqldata62d GWQError^%apiSQL("SQL02_LIS",226,"Execute",sqldata59d,sqldata61d)
+%0AmAk1 s SQLCODE=$zf(-5,%SQLGateway,7,sqldata61d)
+ i SQLCODE=100 s sqldata62d=$zf(-5,%SQLGateway,17,sqldata61d) g %0AmAdun
+ d:SQLCODE GWQError^%apiSQL("SQL02_LIS",227,"Fetch (server error: "_SQLCODE_")",sqldata59d,sqldata61d)
+ s aPatient(2)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,1,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C1)",sqldata59d,sqldata61d)
+ s aPatient(3)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,2,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C2)",sqldata59d,sqldata61d)
+ s aPatient(4)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,3,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C3)",sqldata59d,sqldata61d)
+ s aPatient(5)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,4,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C4)",sqldata59d,sqldata61d)
+ s aPatient(5)=$s(aPatient(5)="":"",1:$$%0AmAs1(aPatient(5)))
+ s aPatient(6)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,5,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C5)",sqldata59d,sqldata61d)
+ s aPatient(7)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,6,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C6)",sqldata59d,sqldata61d)
+ s aPatient(8)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,7,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C7)",sqldata59d,sqldata61d)
+ s aPatient(9)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,8,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C8)",sqldata59d,sqldata61d)
+ s aPatient(10)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,9,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C9)",sqldata59d,sqldata61d)
+ s aPatient(11)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,10,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C10)",sqldata59d,sqldata61d)
+ s aPatient(12)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,11,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C11)",sqldata59d,sqldata61d)
+ s aPatient(12)=$s(aPatient(12)="":"",1:$$%0AmAs1(aPatient(12)))
+ s aPatient(13)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,12,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C12)",sqldata59d,sqldata61d)
+ s aPatient(13)=$s(aPatient(13)="":"",1:$$%0AmAs1(aPatient(13)))
+ s aPatient(14)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,13,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C13)",sqldata59d,sqldata61d)
+ s aPatient(15)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,14,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C14)",sqldata59d,sqldata61d)
+ s aPatient(16)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,15,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C15)",sqldata59d,sqldata61d)
+ s aPatient(17)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,16,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C16)",sqldata59d,sqldata61d)
+ s aPatient(18)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,17,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C17)",sqldata59d,sqldata61d)
+ s aPatient(19)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,18,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C18)",sqldata59d,sqldata61d)
+ s aPatient(20)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,19,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C19)",sqldata59d,sqldata61d)
+ s aPatient(21)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,20,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C20)",sqldata59d,sqldata61d)
+ s aPatient(22)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,21,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C21)",sqldata59d,sqldata61d)
+ s aPatient(23)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,22,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C22)",sqldata59d,sqldata61d)
+ s aPatient(24)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,23,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C23)",sqldata59d,sqldata61d)
+ s aPatient(25)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,24,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C24)",sqldata59d,sqldata61d)
+ s aPatient(26)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,25,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C25)",sqldata59d,sqldata61d)
+ s aPatient(27)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,26,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C26)",sqldata59d,sqldata61d)
+ s aPatient(27)=$s(aPatient(27)="":"",1:$$%0AmAs1(aPatient(27)))
+ s aPatient(28)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,27,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C27)",sqldata59d,sqldata61d)
+ s aPatient(28)=$s(aPatient(28)="":"",1:$$%0AmAs1(aPatient(28)))
+ s aPatient(29)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,28,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C28)",sqldata59d,sqldata61d)
+ s aPatient(30)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,29,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C29)",sqldata59d,sqldata61d)
+ s aPatient(31)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,30,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C30)",sqldata59d,sqldata61d)
+ s aPatient(32)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,31,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C31)",sqldata59d,sqldata61d)
+ s aPatient(33)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,32,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C32)",sqldata59d,sqldata61d)
+ s aPatient(34)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,33,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C33)",sqldata59d,sqldata61d)
+ s aPatient(35)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,34,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C34)",sqldata59d,sqldata61d)
+ s aPatient(36)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,35,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C35)",sqldata59d,sqldata61d)
+ s aPatient(37)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,36,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C36)",sqldata59d,sqldata61d)
+ s aPatient(37)=$s(aPatient(37)="":"",1:$$%0AmAs1(aPatient(37)))
+ s aPatient(38)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,37,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C37)",sqldata59d,sqldata61d)
+ s aPatient(39)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,38,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C38)",sqldata59d,sqldata61d)
+ s aPatient(40)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,39,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C39)",sqldata59d,sqldata61d)
+ s aPatient(41)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,40,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C40)",sqldata59d,sqldata61d)
+ s aPatient(42)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,41,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C41)",sqldata59d,sqldata61d)
+ s aPatient(43)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,42,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C42)",sqldata59d,sqldata61d)
+ s aPatient(44)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,43,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C43)",sqldata59d,sqldata61d)
+ s aPatient(45)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,44,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C44)",sqldata59d,sqldata61d)
+ s aPatient(46)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,45,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C45)",sqldata59d,sqldata61d)
+ s aPatient(47)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,46,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C46)",sqldata59d,sqldata61d)
+ s aPatient(48)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,47,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C47)",sqldata59d,sqldata61d)
+ s aPatient(49)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,48,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C48)",sqldata59d,sqldata61d)
+ s aPatient(50)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,49,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C49)",sqldata59d,sqldata61d)
+ s aPatient(51)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,50,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C50)",sqldata59d,sqldata61d)
+ s aPatient(51)=$s(aPatient(51)="":"",1:$$%0AmAs1(aPatient(51)))
+ s aPatient(52)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,51,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C51)",sqldata59d,sqldata61d)
+ s aPatient(53)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,52,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C52)",sqldata59d,sqldata61d)
+ s aPatient(54)=$zf(-5,%SQLGateway,$s(sqldata60d:50,1:25),sqldata61d,53,$s(sqldata60d:-8,1:1))
+ s sqldata62d=$zf(-5,%SQLGateway,13) d:sqldata62d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C53)",sqldata59d,sqldata61d)
+ s SQLCODE=0 g %0Ac
+ g %0AmAk1
+%0AmAdun 
+%0Ac s %ROWCOUNT='SQLCODE
+ i sqldata61d'="",$g(%SQLGateway) { s sqldata62d=$zf(-5,%SQLGateway,16,sqldata61d) }
+ q
+%0Aerr s $zt=""
+ d SQLRunTimeError^%apiSQL($ze,.SQLCODE,.%msg)
+ g %0Ac
+%0Do n sqldata6d,sqldata7d,sqldata8d,sqldata9d,sqldata10d,sqldata11d,sqldata4d
+ s $zt="%0Derr"
+ s sqldata6d=$zu(115,2)
+ d:$zu(115,15) $system.ECP.Sync()
+ s sqldata4d=$g(DNO)
+ s SQLCODE=100
+ s sqldata10d=""
+ s sqldata7d="select T1.""ID"" AS C1 FROM  ""LIS"".""tblClient"" T1 where ((T1.""Code"" = ?))"
+ s sqldata8d=$$GetConnection^%apiGTW("SQL02_LIS"),sqldata9d=%SQLGateway("-uv")&&$zbitget($zversion(0),1)
+ i sqldata8d="" s %msg="Connection 'SQL02_LIS': Can't get connection",SQLCODE=-221 ztrap "GWSQ"
+ i sqldata10d="" s sqldata10d=$zf(-5,%SQLGateway,5,sqldata8d)
+ i sqldata10d="" s sqldata8d=$$Reconnect^%apiGTW("SQL02_LIS") s sqldata10d=$zf(-5,%SQLGateway,5,sqldata8d) d:sqldata10d="" GWQError^%apiSQL("SQL02_LIS",222,"Allocate statement",sqldata8d,sqldata10d)
+ s sqldata11d=$zf(-5,%SQLGateway,$s(%SQLGateway("-uv"):37,1:3),sqldata10d,sqldata7d)
+ d:sqldata11d GWQError^%apiSQL("SQL02_LIS",223,"Prepare("_"select T1.""ID"" AS C1 FROM  ""LIS"".""tblClient"" ..."_")",sqldata8d,sqldata10d)
+ s sqldata11d=$zf(-5,%SQLGateway,8,sqldata10d,$lb(20),$lb(12),$lb(0),$lb(1),$lb(20))
+ d:sqldata11d GWQError^%apiSQL("SQL02_LIS",225,"Bind parameters",sqldata8d,sqldata10d)
+ s sqldata11d=$zf(-5,%SQLGateway,9,sqldata10d,$lb(sqldata4d),1)
+ s sqldata11d=$zf(-5,%SQLGateway,17,sqldata10d) s sqldata11d=$zf(-5,%SQLGateway,4,sqldata10d)
+ d:sqldata11d GWQError^%apiSQL("SQL02_LIS",226,"Execute",sqldata8d,sqldata10d)
+%0DmAk1 s SQLCODE=$zf(-5,%SQLGateway,7,sqldata10d)
+ i SQLCODE=100 s sqldata11d=$zf(-5,%SQLGateway,17,sqldata10d) g %0DmAdun
+ d:SQLCODE GWQError^%apiSQL("SQL02_LIS",227,"Fetch (server error: "_SQLCODE_")",sqldata8d,sqldata10d)
+ s ClientID=$zf(-5,%SQLGateway,$s(sqldata9d:50,1:25),sqldata10d,1,$s(sqldata9d:-8,1:1))
+ s sqldata11d=$zf(-5,%SQLGateway,13) d:sqldata11d GWQError^%apiSQL("SQL02_LIS",228,"GetData(C1)",sqldata8d,sqldata10d)
+ s SQLCODE=0 g %0Dc
+ g %0DmAk1
+%0DmAdun 
+%0Dc s %ROWCOUNT='SQLCODE
+ i sqldata10d'="",$g(%SQLGateway) { s sqldata11d=$zf(-5,%SQLGateway,16,sqldata10d) }
+ q
+%0Derr s $zt=""
+ d SQLRunTimeError^%apiSQL($ze,.SQLCODE,.%msg)
+ g %0Dc

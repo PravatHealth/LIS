@@ -1,0 +1,132 @@
+ROUTINE ARYSUM [Type=INT]
+ARYSUM ; PRINT BUILD ARRAY FOR SUMMARY REPORT [ 01/28/2003   8:08 AM ]
+ 	; INTERPATH - RH
+ 	; 8/24/89
+ 	; INPUT VARIABLES - PNO,ARY,DOCHK,TYP
+ 	;
+START 
+ 	S $ZT="ERROR^ARYSUM" 
+ 	K C,CMT,R,T,TST,RLAB
+ 	N (AG,AGSX,AMB,BDT,C,CMT,DC,DNA,DNAO,DNO,DO,DOB,DOC,DR,DT,HNO,HRS,LOC,MS,ONO,PC,PNA,PNO,PRN,R,REFLAB,RTYP,SA,SPIN,SSN,SX,TC,TO,TMG,TR,TST,TZ,C1,P1,P2,EMROrderCodes,SecondaryIdentifier,TZReportedDate,TZReportedTime,TZOrderedDate,TZOrderedTime)
+ 	;
+PAT ;Define PAT
+	S XP=PNO#100 Q:'$D(^L(XP,PNO))  M PAT=^L(XP,PNO)
+ 	S:'$D(DNO) DNO=$Piece(PAT(.02),"#",1) S TZ=^DOC(DNO,42) D ^LIB0020 S RDAT=%TOD
+ 	I $D(PAT(.8)) S RDAT=+PAT(.8)
+ 	D RPRT
+ 	;
+TST ;Define List of tests in R Array
+	S LEV=.99 F  S LEV=$O(PAT(LEV)) Q:LEV=""  D
+ 	.I $D(^FLG("NOPRNT",LEV)) S DATA=PAT(LEV),R=$P(DATA,"*",3) I R=""!(R?." ")!(R=0)!(R="0.0")!(R="POSITIVE")!(R="NEGATIVE") Q
+ 	.S TST(LEV)=PAT(LEV)
+ 	;
+REQ S RTYP="PRELIMINARY" D LCF^SUB004 S ^L(XP,PNO)=TTN_"*",STA=TTN S:STA<1 RTYP="COMPLETED" S REQ=^L(XP,PNO,.03)
+ 	S RNO="" F I=1:1 S RNO=$P(REQ,"*",I) Q:RNO=""  D
+ 	.I $D(^FLG("NOPRNT",RNO)) Q  ; Skip NOPRNT tests
+ 	.S RXT=RNO#100,R(RNO)=$P(^T2(RXT,RNO,1)," [",1) I $D(^DUTL("TNA",DNO,RNO)) S R(RNO)=^(RNO)
+ 	.I $O(^T2(RXT,RNO,7,RDAT))="" S INC=^T2(RXT,RNO,7) S:^(8)'="" INC=^(8) G REQ+6
+ 	.S DATE=$O(^T2(RXT,RNO,7,RDAT)),INC=^T2(RXT,RNO,7,DATE) I $D(^T2(RXT,RNO,8,DATE)) I ^(DATE)'="" S INC=^(DATE)
+ 	.I INC["/" D
+ 	..S CNO="" F II=1:1 S CNO=$P(INC,"/",II) Q:CNO=""  D
+ 	...Q:CNO'?4.5N  S CXT=CNO#100,C(RNO,CNO)=$P(^T2(CXT,CNO,1)," [",1) S:$D(^DUTL("TNA",DNO,CNO)) C(RNO,CNO)=^(CNO) Q
+ 	;
+DEF I '$D(R)&'$D(C) D ^REBUILD G END
+ 	I $$^LIB0033(PNO)
+ 	S PNA=$E(PAT(.01),1,28)
+ 	S DOC=PAT(.02)
+ 	S EMROrderCodes=$Get(PAT(.035))
+ 	S HNO=$P(PAT(.04),"^",1)
+ 	S SecondaryIdentifier=$Get(PAT(.15))
+ 	S SPIN=PAT(.05)
+ 	S AGSX=PAT(.06)
+ 	S LOC=PAT(.07)
+ 	S HRS=PAT(.08)
+ 	S AMB=PAT(.1)
+ 	S DTO=$P(PAT(.5),"*",1)
+ 	S DNO=$Piece(DOC,"#",1)
+ 	S AG=$P(AGSX,"*",1)
+ 	S SX=$P(AGSX,"*",2)
+ 	S DOB=$P(AGSX,"*",3)
+ 	S SA=SX_AMB
+ 	S VAR(1)=AGSX,DUD=$$^EXT031(.VAR),AGSX=VAR(2)
+ 	S BDT=$P(AGSX," ",1)
+ 	S SSN=$$SSN^LIB0044($G(PAT(.11)))
+ 	S TMG=$G(PAT(.12))
+ 	S ONO=$G(PAT(.13))
+ 	S COL=PAT(.09),%DT=$P(COL,"^",1),%TM=$P(COL,"^",2) D ^LIB0011,^LIB0013 S DC=%DAT4,TC=%TIM I %TM="N/G" S TC=%TM
+ 	S COM=.6000 F I=1:1 S COM=$O(PAT(COM)) Q:COM=""  Q:COM>.6999  S D=PAT(COM),CTYP=$P(D,"*",1),TNO=$P(D,"*",2),CMT=$P(D,"*",3),CMT(CTYP,TNO,COM)=CMT
+ 	D DCVRT
+ 	D DTVRT 
+ 	D DTZONE
+ 	F VAR="AG","SX","DC","TC","HRS","DO","TO","HNO","LOC" I @VAR="" S @VAR="N/G"
+ 	S CN=.6000 F  S CN=$O(PAT(CN)) Q:$O(PAT(CN))=""  Q:$O(PAT(CN))>.6999
+ 	S CMTNO="" F  S CMTNO=$O(R(CMTNO)) Q:CMTNO=""  D ACMT
+ 	S CTNO="" F  S CTNO=$O(C(CTNO)) Q:CTNO=""  D
+ 	.S CMTNO="" F  S CMTNO=$O(C(CTNO,CMTNO)) Q:CMTNO=""  D ACMT
+ 	G END
+	;
+DCVRT ; Get Client Information from DOC
+	N P S MS=^DOC(DNO,7),DUD=$$^LIB0023(DOC),DNA=P(.021),DNAO=P(.022)
+ 	Q
+ 	;	
+DTVRT	;Set Date and Time Ordered and Reported 
+	S (DO,DR)="",%DT=$P(DTO,",",1) D ^LIB0013 S DO=%DAT4 I $D(PAT(.8)) S %DT=$P(PAT(.8),",",1) D ^LIB0013 S DR=%DAT4
+ 	S (TO,TR)="",%TM=$P(DTO,",",2) D ^LIB0011 S TO=%TIM I $D(PAT(.8)) S %TM=$P(PAT(.8),",",2) D ^LIB0011 S TR=%TIM I %TM="N/G" S TR=%TM
+ 	Q
+ 	;
+DTZONE ; Set Timezone appropriate ReportedDT and CompletedDT
+	;
+	Set TZReportedDate=""
+	Set TZReportedTime=""
+	Set TZOrderedDate=""
+	Set TZOrderedTime=""
+	;
+	;Process Ordered Date and Time
+	Set DateTimeToConvert=$Piece($Get(PAT(.5)),"*",1)
+	Do ^LIB0020
+	Set %DT=%TOD 
+	Do ^LIB0013 
+	Set TZOrderedDate=%DAT4
+	Set %TM=%TOT
+	Do ^LIB0011
+	Set TZOrderedTime=%TIM
+	If %TM="N/G" S TZOrderedTime=%TM
+	;
+	;Process Current Reported Date and Time.  If not completed set as current time.  This only effects reports.
+	Set DateTimeToConvert=$Piece($Get(PAT(.8)),"*",1)
+	Do ^LIB0020
+	Set %DT=%TOD
+	Do ^LIB0013
+	Set TZReportedDate=%DAT4
+	Set %TM=%TOT
+	Do ^LIB0011
+	Set TZReportedTime=%TIM
+	If %TM="N/G" S TZReportedTime=%TM
+	Quit
+	;
+ACMT ; Autocomments
+ 	;I $G(DNO)=9996 Q  ; Not doing autocomments on DNO 9996 while testing the quest interface
+ 	I '$D(^COM("AUTOCOM",CMTNO)) Q
+ 	I $D(^FLG("NOPRNT",CMTNO)) Q  ; No comments for NOPRNT tests
+ 	I $D(^COM("AUTOCOM",CMTNO,DNO)) D  Q
+ 	.S LEV="" F  S LEV=$O(^COM("AUTOCOM",CMTNO,DNO,LEV)) Q:LEV=""  S CMT=^(LEV) D
+ 	..S CN=CN+.0001,CMT("T",CMTNO,CN)=CMT Q
+ 	I $D(^COM("AUTOCOM",CMTNO,"ALL")) D
+ 	.S LEV="" F  S LEV=$O(^COM("AUTOCOM",CMTNO,"ALL",LEV)) Q:LEV=""  S CMT=^(LEV) D
+ 	..S CN=CN+.0001,CMT("T",CMTNO,CN)=CMT Q
+	Q
+ 	;
+RPRT; Set Reported Data for Prelims and Completed
+	S (P1,P2,C1)="",DATA=$P($G(PAT(.7)),"*",1)
+ 	I DATA'="" S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S P1=%DAT4_"  "_%TIM2
+ 	S DATA=$P($G(PAT(.7)),"*",2) I DATA'="" S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S P2=%DAT4_" "_%TIM2
+ 	S DATA=$G(PAT(.8)) I DATA'="" S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S C1=%DAT4_" "_%TIM2
+ 	Q
+	
+END ; END OF ROUTINE
+ 	Do ^LIB0130(PNO) ; Created Performed at array
+ 	Quit
+ 
+ERROR 
+	Do ^LIB0015("ARYSUM") 
+	Quit

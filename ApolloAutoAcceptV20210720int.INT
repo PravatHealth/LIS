@@ -1,0 +1,137 @@
+ROUTINE ApolloAutoAcceptV20210720int [Type=INT]
+ApolloAutoAccept ; Auto Accept Results coming from the Apollo
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 	;Interpath Laboratory, Inc.
+ 	;Purpose / Description:Auto Accept to LIS from Apollo 
+ 	;Installed / Tested: <bjmcg> <7/27/2020>
+ 	;Approved: <bjmcg> <7/27/2020>
+ 	;All Applicable Users Trained  <bjmcg> <7/27/2020>
+ 	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 	;INPUT VARIABLES:
+ 	;OUTPUT VARIABLES:
+ 	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 	;                    Modifications
+ 	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 	;   Date     | pgmr  |All Applicable Users Trained|Modifications Tested|Description
+ 	;   
+FLASH ; Routine Setup
+	;Quit
+	S $ZT="ERROR^ApolloAutoAccept"
+	S DEBUG=$Get(^FLG("APOLLO","DEBUG"))
+	;
+START ; START OF ROUTINE
+	L +^SYSTEM("LIB0005","LABCLA","ApolloAutoAccept"):2 I '$T Q
+	;Merge ^CacheTemp.ApolloAutoAccept("LOG")=^IFACE("DI")
+	I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS)="ApolloAutoAccept Started" h .1
+	S PNO="" F  S PNO=$O(^IFACE("APOLLO","RESULTS","IN",PNO)) Q:PNO=""  D
+	.K (PNO,DEBUG) ;Clean up work space.
+	.S DEBUG=$g(^FLG("APOLLO","DEBUG"))
+	.S TNO="" F  S TNO=$O(^IFACE("APOLLO","RESULTS","IN",PNO,TNO)) Q:TNO=""  D
+	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="Begin processing PNO "_PNO_" and test "_TNO h .1
+	..S XP=PNO#100
+	..I '$D(^L(XP,PNO)) K ^IFACE("APOLLO","RESULTS","IN",PNO) Q ;Patient no longer on file or bad patient 
+    ..S PNA=^L(XP,PNO,.01) ; Set Patient Name
+    ..S DOC=^L(XP,PNO,.02) ;Set Doc
+    ..S DNO=+DOC ; Set DNO
+    ..S DRN=^DOC(DNO,6),PFLG=999 I DRN="" S DRN=99 ;Set The Route
+ 	..S XT=TNO#100 ;Set XT
+ 	..S DATA=^IFACE("APOLLO","RESULTS","IN",PNO,TNO)
+ 	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="DATA= "_DATA h .1
+ 	..S R=$P(DATA,"_",1) ;Get Result.
+ 	..If R'=" " S R=$$StripTrailChar^LIB0044(R," ") ; Remove Trailing Spaces
+ 	..S WCT=$P(DATA,"_",2) ;Get Work Center.
+ 	..S INI=$P(DATA,"_",3) ;Get INI.
+ 	..S WLIST=$G(^T2(XT,TNO,9)) ;Set Work List.
+ 	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="All variables are ready to process... " h .1
+ 	..I WLIST="" D  Q ;Quit if ther is no work list defined to test.
+ 	...I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="Work List is NULL exiting loop..." h .1
+ 	..I '$D(^L(XP,PNO,TNO)) D  Q ; Quit if it is not on the patient file.
+ 	...I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="TNO not on the patient file exiting loop..." h .1 
+ 	..;I '$D(^DLY(WLIST,WCT,PNO,TNO)) D  Q ;Quit if there is no test for this workcenter.
+ 	...;I DEBUG S ^CacheTemp.DIAutoAccept("DIAutoAccept",$ZTS,PNO,TNO)="PNO Not On Work List "_WLIST_" exiting loop..." h .1
+ 	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="On Work List "_WLIST h .1
+ 	..I $P(^L(XP,PNO,TNO),"*",3)'="" D  Q  ; There's a result already on file.
+ 	...Kill ^IFACE("APOLLO","RESULTS","IN",PNO,TNO)
+ 	...I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="Patient no longer has "_TNO_" on file, exiting loop..." h .1
+ 	..I R=""!(R="???") D  Q ;Result is null or ???. Quit.
+ 	...Kill ^IFACE("APOLLO","RESULTS","IN",PNO,TNO)
+ 	...I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="Result= "_R_", exiting loop..." h .1
+ 	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="Result = "_R_" Sending to FILBKG^UTLFIL" h .1
+ 	..D FILBKG^UTLFIL ;File result to patient file. 
+ 	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="FILBKG^UTLFIL Ran Successfully" h .1
+ 	..D COMMENT ; Build comment on patient file. 
+  	..S VAR(1)=DRN,VAR(2)=DNO,VAR(3)=PNO,VAR(4)=TNO D ^PSET(.VAR)
+  	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="PSET Ran Successfully" h .1
+ 	..K ^IFACE("APOLLO","RESULTS","IN",PNO,TNO) ; Clean Off Results for that TNO.
+ 	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="Removed off ^IFACE('APOLLO','RESULTS','IN',PNO,TNO)" h .1
+ 	..K ^DLY(WLIST,WCT,PNO,TNO) ; Clean off the work list incase results were entered from another WCT.
+ 	..I $N(^DLY(WLIST,WCT,PNO,.003))=-1 K ^DLY(WLIST,WCT,PNO,.002),^DLY(WLIST,WCT,PNO,.003)
+ 	.D CALC^UTLFIL ; Determine if there is a calculation to be performed after all tests are entered for that patient.  If so do it.
+ 	.I DEBUG S ^CacheTemp.DIAutoAccept("DIAutoAccept",$ZTS,PNO)="CALC^UTLFIL Ran Successfully" h .1
+	.K ^IFACE("APOLLO","RESULTS","IN",PNO)
+	.I '$D(^IFACE("APOLLO","RESULTS","IN",PNO)) D
+	..I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO)="Successfully removed from ^IFACE('APOLLO','RESULTS','IN',PNO" h .1
+	D END
+	I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS)="ApolloAutoAccept Finished" h .1
+	Quit
+	;
+COMMENT  ; Build Comment on Patient File
+	I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="In Sub-Routine COMMENT" h .1
+	I '$D(^IFACE("APOLLO","RESULTS","IN",PNO,TNO,"Comment")) D  Q ; Quit if there is no comments.
+	.I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="No comment to process.  Exiting Sub-Routine Comment..." h .1
+	L +^L(XP,PNO) ; Lock patient file
+    Set CN=$O(^L(XP,PNO,.6999),-1) I CN<.6000 S CN=.6000 ;Get the next comment line in the list
+    Set CN=CN+.0001
+    Set CNO=$P(^L(XP,PNO,TNO),"*",2) ;Getting the REQ Number.  i.e. Panel Number
+    Set Comments=^IFACE("APOLLO","RESULTS","IN",PNO,TNO,"Comment"),^SadieTempGlobal("IFACE",PNO,TNO,"Comment",$H,CN)=$G(Comments)
+    Set CommentLength=$l(Comments,"^")
+    For I=1:1:CommentLength Set CMT=$Piece(Comments,"^",I) I CMT'=""  D
+    .Do CHKDupCMT
+    .If CMTExistflg=1 Quit ;do not add duplicate comment
+    .S ^L(XP,PNO,CN)="T*"_+CNO_"*"_CMT ; Set comment to patient file.
+    .S ^SadieTempGlobal("L",$H,XP,PNO,TNO,"Comment",CN)=^L(XP,PNO,CN)
+    .//Set LEV=1
+    .//I $O(^ModifiedCmtRef(XP,PNO,CN,""))'="" S LEV=$O(^ModifiedCmtRef(XP,PNO,CN,""),-1)+1
+    .//S ^MODIFIED("MSSQL","REPORTCMT",XP,PNO,CN,LEV)="T*"_+CNO_"*"_CMT
+    .S CN=CN+.0001
+    L -^L(XP,PNO) ; Unlock
+    I DEBUG S ^CacheTemp.ApolloAutoAccept("ApolloAutoAccept",$ZTS,PNO,TNO)="End Sub-Routine COMMENT" h .1
+    Quit
+    ;
+DIFFWCT ; Find the WCT the patient sits on so we can apply the results for the diff.
+	Quit
+	;
+CHKDupCMT;
+	Set CMTExistflg=0
+	For Index=.6000:.0001:.6999 Do
+	. Set ExistingCMT=$G(^L(XP,PNO,Index))
+	. I ExistingCMT'=""  Do
+	. . Set NWCMT="T*"_+CNO_"*"_CMT
+	. . If ExistingCMT=NWCMT set CMTExistflg=1
+	. . Else  Set CMTExistflg=0
+	Quit CMTExistflg
+	/*
+CHKDupCMT ;make sure not to add duplicate comments to the patient file
+	Set CMTExistflg=0
+	Set ExistingCMT=.6001 F  Set ExistingCMT=$O(^L(XP,PNO,ExistingCMT)) Quit:ExistingCMT=""  Quit:CMTExistflg=1  Quit:ExistingCMT>.6999  Do
+	.Set CMTData=^L(XP,PNO,ExistingCMT),^SadieTempGlobal("CHKDUP",$H,XP,PNO,ExistingCMT)=^L(XP,PNO,ExistingCMT)
+	.Write "CMTData="_CMTData ,!
+	.Set NWCMT="T*"_+CNO_"*"_CMT
+	.Write "NewCMT="_NWCMT ,!
+	.If CMTData=NWCMT set CMTExistflg=1,^SadieTempGlobal("DUPLICATE",$H,XP,PNO,ExistingCMT)=$G(CMTData)_"~~~"_$G(NWCMT)
+	Write "CMTExistflg="_CMTExistflg ,!
+	Quit
+	*/
+	
+	
+END ; Logical end of routine
+ 	S ^PRINT(.01)=111 J ^PRNTB::1 ; Job Background print
+ 	L ;Release All Locks  
+ 	Quit ;
+ 	;
+ERROR ; ERROR LOGGING
+	;W $ZE
+	D ^LIB0015("ApolloAutoAccept")
+	Q
+	;

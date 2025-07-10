@@ -1,0 +1,40 @@
+ROUTINE BPRI [Type=INT]
+BPRI ; ROUTINE TO ESTABLISH PRICING [ 10/14/2000  12:18 PM ]
+ ; INTERPATH - RH
+ ; 8/29/90	
+ ; <<INPUT VARIABLES>> DNO,BTYP,XT,TNO
+ ; << OUTPUT >> is TP (Test Price) 
+ ;
+START S $ZT="ERROR^BPRI" S:^DOC(DNO,55)'="" DNO=^(55) S FS="A" S:^DOC(DNO,33)'="" FS=^(33) S PFS=$P($T(@FS),";",2),CFS=$P(PFS,"*",1),PFS=$P(PFS,"*",2),(PDIS,CDIS)=0 S:^(60)'="" CDIS=^(60) S:^(61)'="" PDIS=^(61)
+ I '$D(BTYP) S BTYP="P" S:^DOC(DNO,30)'="" BTYP=^(30) S:BTYP="D" BTYP="C"
+CPRI G PPRI:BTYP="P" S TP="0.00" S:^T2(XT,TNO,CFS)'="" TP=^(CFS)
+ I ^T2(XT,TNO,110)'="" S CUS=^(110) G CPRI+2:CUS'[DNO_"$" S TP=$P(CUS,DNO_"$",2),TP=$P(TP,"*",1) Q
+ I ^T2(XT,TNO,111)'="" S CUS=^(111) G CDIS:CUS'[DNO_"$" S TP=$P(CUS,DNO_"$",2),TP=$P(TP,"*",1) Q
+CDIS I ((DNO=9001)!(DNO=9010)!(DNO=9021)!(DNO=1103)!(DNO=8953)!(DNO=9026)!(DNO=4049)!(DNO=9984)!(DNO=9976)) S TP=TP-(TP*CDIS*.01),TP=$J(TP,0,2) Q
+ I ^T2(XT,TNO,91)="" S TP=TP-(TP*CDIS*.01),TP=$J(TP,0,2)
+ Q
+ ; NOTE the code in CDIS for CHI is in FEE001 also
+PPRI S TP="0.00" S:^T2(XT,TNO,PFS)'="" TP=^(PFS)
+ I ^T2(XT,TNO,130)'="" S CUS=^(130) G PPRI+2:CUS'[DNO_"$" S TP=$P(CUS,DNO_"$",2),TP=$P(TP,"*",1) Q
+ I ^T2(XT,TNO,131)'="" S CUS=^(131) G PDIS:CUS'[DNO_"$" S TP=$P(CUS,DNO,"$",2),TP=$P(TP,"*",1) Q
+PDIS I ^T2(XT,TNO,91)="" S TP=TP-(TP*PDIS*.01),TP=$J(TP,0,2)
+ Q
+ ;
+ERROR D ^LIB0015("BPRI") Q
+ ;
+NOTES ; 2/1/1999 we are allowing a discount for Referred Procedures to work 
+ ; on CLIENT billing for the CHI hospitals. Because of the contract 
+ ; amount we do not want Referred procedures getting a disproportionate 
+ ; amount of the revenue because they do not discount.
+ ;	
+A ;115*135
+B ;116*136
+C ;117*137
+D ;118*138
+E ;119*139
+F ;120*140
+G ;121*141
+H ;122*142
+I ;123*143
+J ;124*144
+K ;125*145

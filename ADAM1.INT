@@ -1,0 +1,3657 @@
+ROUTINE ADAM1 [Type=INT]
+ADAM1 ;ADAMS MICS PROGRAMS
+	
+TestFileVolume ; test volume report
+	;
+	Kill ^CacheTemp.TestVolumes("TNO")
+	;Prep Test Files
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Set Active=$Get(^T2(XT,TNO,400))
+	..If Active'="" Quit
+	..Set WCT=$Get(^T2(XT,TNO,11))
+	..If WCT'["AA" Quit
+	..Set ^CacheTemp.TestVolumes("TNO",TNO)=0
+	;
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="202006000000" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set CNO=999 For  Set CNO=$Order(^L(XP,PNO,CNO)) Quit:CNO=""  Do
+	...Set PerformedAt=$Piece(^L(XP,PNO,CNO),"*",5)
+	...If PerformedAt'="AA" Quit
+	...Set CNOCNT=$Get(^CacheTemp.TestVolumes("TNO",CNO))
+	...Set CNOCNT=CNOCNT+1
+	...Set ^CacheTemp.TestVolumes("TNO",CNO)=CNOCNT
+	;
+	;Micro
+	; ^M(0,201002001100,4020,4020) = "URINE CULTURE*4090*AA" 
+	Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	.Set PNO="202006000000" For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	..Set TNO=999 For  Set TNO=$Order(^M(XP,PNO,TNO)) Quit:TNO=""  Do
+	...Set CNO=999 For  Set CNO=$Order(^M(XP,PNO,TNO,CNO)) Quit:CNO=""  Do
+	....Set PerformedAt=$Piece(^M(XP,PNO,TNO,CNO),"*",3)
+	....If PerformedAt'="AA" Quit
+	....Set CNOCNT=$Get(^CacheTemp.TestVolumes("TNO",CNO)) If CNOCNT="" Set CNOCNT=0
+	....Set CNOCNT=CNOCNT+1
+	....Set ^CacheTemp.TestVolumes("TNO",CNO)=CNOCNT
+	;
+	Quit
+
+ReportTestVolumes
+	Do ^LIB0110("P")
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.TestVolumes("TNO",TNO)) Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.Set TNA=^T2(XT,TNO,1)
+	.Set NumberTests=^T2(XT,TNO,5)
+	.If NumberTests'=1 Quit
+	.Set Worklist=$Get(^T2(XT,TNO,9))
+	.If Worklist=100 Quit
+	.Set Volume=^CacheTemp.TestVolumes("TNO",TNO)
+	.Set LINE=TNO_$C(9)_TNA_$C(9)_Volume
+	.Write !,LINE
+	Do ^LIB0111
+	;
+	Quit
+	;
+xlsxTest;Read New File
+ 	Set FILE="S:\Temp\test.xlsx"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do 
+	.Write !,DATA
+ 	Close FILE
+	;
+	
+QCReport
+	;^CacheTemp.AppUtilization("QC001","CB","deott","
+	Set PMG="" For  Set PMG=$Order(^CacheTemp.AppUtilization(PMG)) Quit:PMG=""  Do
+	.Set WCT="" For  Set WCT=$Order(^CacheTemp.AppUtilization(PMG,WCT)) Quit:WCT=""  Do
+	..Set INI="" For  Set INI=$Order(^CacheTemp.AppUtilization(PMG,WCT,INI)) Quit:INI=""  Do
+	...Set WCTName=$Piece(^SYSTEM("WCT",WCT),"_",1)
+	...Set Temp(WCTName,INI)=""
+	Quit
+
+
+
+CovidReport;
+	Kill
+	Set PNO="" For  Set PNO=$Order(^HL7("ORDER","EW",PNO)) Quit:PNO=""  Do
+	.Set TNO="" For  Set TNO=$Order(^HL7("ORDER","EW",PNO,TNO)) Quit:TNO=""  Do
+	..Set XP=PNO#100
+	..If '$D(^L(XP,PNO,TNO)) Quit
+	..Set Result=$Piece(^L(XP,PNO,TNO),"*",3)
+	..;Write !,Result
+	..If Result'="" Quit
+	..Write !,PNO Read DUD
+	Quit
+
+ ;Do CovidAutoConversions2^ADAM1
+ ;Make all autoconvert to 92205
+CovidAutoConversions3
+ 	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+ 	.If DNO=9995 Quit ; dont process this client
+ 	.If ^DOC(DNO,25)="X" Quit ; Dont Update
+ 	.;If '$D(^CacheTemp.ADAM1("CovidAutoConversions2",DNO)) Quit ; Do Not Add AutoConverstion for listed Providers
+ 	.Set ^FLG("TNC",DNO,2785)="92205"
+	Quit
+
+	;Do CovidAutoConversions4^ADAM1
+	;Remove all Autoconversions for 2785
+CovidAutoConversions4
+ 	Set DNO="" For  Set DNO=$Order(^FLG("TNC",DNO)) Quit:DNO=""  Do
+ 	.If $D(^FLG("TNC",DNO,2785)) Write !,DNO Kill ^FLG("TNC",DNO,2785)
+	Quit
+
+ ;Do CovidAutoConversions2^ADAM1
+CovidAutoConversions2
+  	;Cleanup
+  	Kill ^CacheTemp.ADAM1("CovidAutoConversions2")
+  	Kill ^FLG("TNC","ALL",2785)
+  	Kill ^FLG("TNC","ALL",92205)
+  	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+ 	.If $D(^FLG("TNC",DNO,2785)) Kill ^FLG("TNC",DNO,2785) Write "Kill Entry"
+ 	;
+ 	;Read New File
+ 	Set FILE="S:\Temp\CovidToIPL.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do 
+ 	.Set DNO=$Piece(DATA,$C(9),1)
+ 	.If DNO="" Quit
+ 	.If '$D(^DOC(DNO)) Quit
+ 	.Set ^CacheTemp.ADAM1("CovidAutoConversions2",DNO)=""
+ 	Close FILE
+ 	;
+ 	;Set Auto Converstions for all clients
+ 	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+ 	.If DNO=9995 Quit ; dont process this client
+ 	.If ^DOC(DNO,25)="X" Quit ; Dont Update
+ 	.If '$D(^CacheTemp.ADAM1("CovidAutoConversions2",DNO)) Quit ; Do Not Add AutoConverstion for listed Providers
+ 	.Set ^FLG("TNC",DNO,2785)="92205"
+ 	;
+ 	;Update Testfiles.
+ 	Do Update^IntegrateTestFile(2785,1)
+ 	Do Update^IntegrateTestFile(92205,1)
+ 	Quit
+	;
+
+
+CovidAutoConversions1
+  	Kill ^CacheTemp.ADAM1("CovidAutoConversions")
+ 	Set FILE="S:\Temp\CovidAutoConversions.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do 
+ 	.Set DNO=$Piece(DATA,$C(9),1)
+ 	.If DNO="" Quit
+ 	.If '$D(^DOC(DNO)) Quit
+ 	.;Use $P Write !, DNO Read DUD
+ 	.;Set ^FLG("TNC",DNO,2785)=92205
+ 	.If $D(^FLG("TNC",DNO,2785)) Kill ^FLG("TNC",DNO,2785) Use $P Write !, DNO Read DUD
+ 	.Set ^CacheTemp.ADAM1("CovidAutoConversions",DNO)=""
+ 	Close FILE
+ 	Do Update^IntegrateTestFile(2785,1)
+ 	Do Update^IntegrateTestFile(92205,1)
+ 	Quit
+	;
+
+
+
+
+PROCFindWorkBay
+	Set ProcedureCode="" For  Set ProcedureCode=$Order(^PROC("LBL",ProcedureCode)) Quit:ProcedureCode=""  Do
+	.Set Data=$Get(^PROC("LBL",ProcedureCode))
+	.If Data'="" Do  Quit
+	..If Data["WK  8" Write !,"Procedure: "_ProcedureCode_" WCT: "_WCT_" WKBAY:"_"WK  9"
+	.Set WCT="" For  Set WCT=$Order(^PROC("LBL",ProcedureCode,WCT)) Quit:WCT=""  Do
+	..Set Data=^PROC("LBL",ProcedureCode,WCT)
+	..If Data["WK  8" Write !,"Procedure: "_ProcedureCode_" WCT: "_WCT_" WKBAY:"_"WK  9"
+	Quit
+	
+FindWRKBAY
+	Set WCT="" For  Set WCT=$Order(^PROC("BAY",WCT)) Quit:WCT=""  Do
+	.Set Bay="" For  Set Bay=$Order(^PROC("BAY",WCT,Bay)) Quit:Bay=""  Do
+	..If Bay="WK  8" Kill ^PROC("BAY",WCT,Bay) Set ^PROC("BAY",WCT,"WK 8")="WK 8"
+	..If Bay="WK  9" Kill ^PROC("BAY",WCT,Bay) Set ^PROC("BAY",WCT,"WK 9")="WK 9"
+	Quit
+	;
+UpdateLine120
+  	Kill ^CacheTemp.ADAM1("UpdateLine120")
+ 	Set FILE="S:\Temp\Line120.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do 
+ 	.Set DNO=$Piece(DATA,$C(9),1)
+ 	.Quit:DNO=""
+ 	.U $P Write !, DNO Read DUD
+ 	.Set ^DOC(DNO,120)=12
+ 	.Set ^CacheTemp.ADAM1("UpdateLine120",DNO)=""
+ 	Close FILE
+ 	Quit
+	;
+PopulateDNO
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set ^DOC(DNO,118)="0"
+	.Set ^DOC(DNO,119)="1"
+	.Set ^DOC(DNO,120)="3"
+	.Set ^DOC(DNO,121)="1"
+	.If "^20455^1044^9009^3878^3879^4364^4365^4366^4367^4368^4369^4370^4371^4372^4373^4488^4489^40360^40361^40414^40415^42000^42001^"[("^"_DNO_"^") Set ^DOC(DNO,121)=0
+	Quit
+	;
+AOEParse
+	;"(3302)~Culture if Indicated = Y~Sample Type = URINE CC~Diagnosis = UTI~Antibiotics = NA^(1131)~Source = URINE~Was a Genital Culture Ordered = Y^"
+	Set PNO=201909051294
+	Set XP=PNO#100
+	Set AOEData=$Get(^L(XP,PNO,.054))
+	Set Count=$Length(AOEData,"^")
+	For I=1:1:Count Set TNOData=$Piece(AOEData,"^",I) Do
+	.If TNOData="" Quit
+	.Write !,TNOData
+	Quit
+	;
+StorLookup
+	;		^STOR("C","PNO","NA")
+	Do ^LIB0110("P")	
+	Set TYP="" For  Set TYP=$Order(^STOR(TYP))  Quit:TYP=""  Do
+	.Set LC="" For  Set LC=$Order(^STOR(TYP,"PNO",LC)) Quit:LC=""  Do
+	..Set LCData=^SYSTEM("LC",LC)
+	..Set LocationName=$Piece(^SYSTEM("LC",LC),"_",1)
+	..Set PNO="" For  Set PNO=$Order(^STOR(TYP,"PNO",LC,PNO)) Quit:PNO=""  Do
+	...If PNO<201901000000 Set ^CacheTemp.STOR(TYP,"PNO",LC,PNO)=^STOR(TYP,"PNO",LC,PNO) Kill ^STOR(TYP,"PNO",LC,PNO) Quit
+	...Write !,PNO,$C(9),TYP,$C(9),LocationName ;Read DUD
+	Do ^LIB0111
+	Quit
+
+
+AutoComLookup
+	;		^COM("AUTOCOM",1001,"ALL",1)
+	Do ^LIB0110("P")	
+	Set TNO="" For  Set TNO=$Order(^COM("AUTOCOM",TNO))  Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.Set TestActive=$Get(^T2(XT,TNO,400))
+	.If TestActive="" Quit
+	.If TestActive="N" Quit
+	.Set DNO="" For  Set DNO=$Order(^COM("AUTOCOM",TNO,DNO)) Quit:DNO=""  Do
+	..If DNO="ALL" Quit
+	..Set ClientActive=$Get(^DOC(DNO,25))
+	..If ClientActive="" Quit
+	..If ClientActive="X" Quit
+	..Set INDEX="" For  Set INDEX=$Order(^COM("AUTOCOM",TNO,DNO,INDEX)) Quit:INDEX=""  Do
+	...Set DATA=^COM("AUTOCOM",TNO,DNO,INDEX)
+	...Write !,TNO,$C(9),DNO,$C(9),INDEX,$C(9),DATA ;Read DUD
+	Do ^LIB0111
+	Quit
+
+TransLog
+	;	^PROC("TRA","LOG",45339,201907059120,100)
+	Do ^LIB0110("P")	
+	Set BID="" For  Set BID=$Order(^PROC("TRA","LOG",BID))  Quit:BID=""  Do
+	.Set PNO="" For  Set PNO=$Order(^PROC("TRA","LOG",BID,PNO)) Quit:PNO=""  Do
+	..Set LEV=99 For  Set LEV=$Order(^PROC("TRA","LOG",BID,PNO,LEV)) Quit:LEV=""  Do
+	...Set Data=^PROC("TRA","LOG",BID,PNO,LEV)
+	...Set Comment=$Piece(Data,"_",4)
+	...Set Count=$O(^CacheTemp.Translog("LIST",Comment,""),-1)+1
+	...Set ^CacheTemp.Translog("LIST",Comment)=Count
+	...Write !,Comment
+	Do ^LIB0111
+	Quit
+	
+NOREPORT
+	Set TNO(5340)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5341)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5342)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5343)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5344)="TRANSPORTED_AA_AutoVerified"
+	;
+	Set TNO="" For  Set TNO=$Order(TNO(TNO)) Quit:TNO=""  Do
+	.Set Data=TNO(TNO)
+	.Set XT=TNO#100
+	.Set TNA=^T2(XT,TNO,1)
+	.Set ^FLG("NOREPORT",TNO)=""
+	.Set ^FLG("NOPRNT",TNO)=TNA ; No Print
+	.Set ^FLG("NOBILL",TNO)=TNA ; No Bill
+	.Set ^HL7("NOPRNT",TNO)=TNA ; No Report HL7
+	Quit
+	;
+AddNoPrintNoBill
+	Write !!!, "Enter TNO: " Read TNO
+	If TNO="" Quit
+	Set XT=TNO#100
+	If '$D(^T2(XT,TNO)) Write " << No Such Test >>" Hang 2 Quit
+	Set TNA=^T2(XT,TNO,1)
+	Set ^FLG("NOPRNT",TNO)=TNA ; No Print
+	Set ^FLG("NOBILL",TNO)=TNA ; No Bill
+	Set ^HL7("NOPRNT",TNO)=TNA ; No Report HL7
+	Quit
+
+ProblemTest
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=201901000000 For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If $Piece(^L(XP,PNO,.02),"#",1)=1999 Quit
+	..If $D(^L(XP,PNO,1998)) Write !,PNO Read Dud
+	Quit
+
+HPMCTestIssue
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=201908000000 For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If $Piece(^L(XP,PNO,.08),"#",1)'=7070 Quit
+	..If '$D(^L(XP,PNO,29985)) Quit
+	..Set Result=$Piece(^L(XP,PNO,29985),"*",3)
+	..If Result="" Write !,PNO Read DUD
+	Quit
+
+
+FLGSUB004
+	Set TNO(5340)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5341)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5342)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5343)="TRANSPORTED_AA_AutoVerified"
+	Set TNO(5344)="TRANSPORTED_AA_AutoVerified"
+	;
+	Set TNO="" For  Set TNO=$Order(TNO(TNO)) Quit:TNO=""  Do
+	.Set Data=TNO(TNO)
+	.Set ^FLG("SUB004","AutoResult",TNO)=Data
+	Quit
+
+INST
+	Set PNO="" For  Set PNO=$Order(^ACP("INST",PNO)) Quit:PNO=""  Do
+	.If '$D(^ACP("INST",PNO,2)) Quit ; if no copy to then quit
+	.If $Get(^ACP("INST",PNO,2))'=+$H Quit ;if not time stamped today quit
+	.Set XP=PNO#100
+	.If '$D(^L(XP,PNO)) Quit ; lab only
+	.If $Piece(^L(XP,PNO,.02),"#",1)=9149 Write !,PNO,?15,^L(XP,PNO,.02)
+	.If $Piece(^L(XP,PNO,.02),"#",1)=9856 Write !,PNO,?15,^L(XP,PNO,.02)
+	.;Write !,PNO,?15,^L(XP,PNO,.02)
+	Quit
+	
+ResultIssue;
+	Do ^LIB0110("P")
+	Set SPNO=^PNO(+$H-5)
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If PNO<SPNO Quit
+	..Set LEV=999 For  Set LEV=$Order(^L(XP,PNO,LEV)) Quit:LEV=""  Do
+	...Set DATA=^L(XP,PNO,LEV)
+	...If $L(DATA,"*")<3 Quit
+	...If $Piece(DATA,"*",$L(DATA,"*"))'="" Write !,PNO_"|"_LEV_"|"_DATA
+	Do ^LIB0111
+	Quit
+	
+	
+T2Display400
+	K
+	Do ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If $Get(^T2(XT,TNO,400))'="" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set ^T2(XT,TNO,400)="N"
+	..Set DATA=^T2(XT,TNO,400)
+	..Write !,TNO_"|"_TNA_"|"_DATA
+	Do ^LIB0111
+	Quit
+	;	
+	
+T2Display199
+	K
+	Do ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If $Get(^T2(XT,TNO,40))="" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set DATA=^T2(XT,TNO,40)
+	..Write !,TNO_"|"_TNA_"|"_DATA
+	Do ^LIB0111
+	Quit
+	;
+AutomationTestsList
+	Kill ^CacheTemp.ADAM1("AutomationTestList")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If TNO>3999&(TNO<5000) Quit
+	..Set flgActive=$Get(^T2(XT,TNO,400))
+	..If flgActive'="Y" Quit ; Filter Out Non Active Tests
+	..Set PreferredSpecimen=$Get(^T2(XT,TNO,200))
+	..Set AlternateSpecimen=$Get(^T2(XT,TNO,201))
+	..;
+	..;Get Perfered Collection Containers
+	..Set pr=$Length(PreferredSpecimen,"|") 
+	..For ii=1:1:pr Set poid=$Piece(PreferredSpecimen,"|",ii) Quit:poid=""  Do
+	...Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...If PrefSpec=0 Quit
+ 	...Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...If PrefSpec.Container="" Quit
+ 	...If PrefSpec.Container'="" Set Container=##class(Supplies.Container).%OpenId(PrefSpec.Container)
+ 	...Set OutputString="NONE"
+	...If $d(Container) Set OutputString=PrefSpec.Container_"|"_Container.Volume_" "_Container.InterpathDescription
+	...Set ^CacheTemp.ADAM1("AutomationTestList",TNO,PrefSpec.Container)=OutputString
+	..;
+	..;Get Alternate Collection Containers
+	..Set pr=$Length(AlternateSpecimen,"|") 
+	..For ii=1:1:pr Set poid=$Piece(AlternateSpecimen,"|",ii) Quit:poid=""  Do
+	...Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...If PrefSpec=0 Quit
+ 	...Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...If PrefSpec.Container="" Quit
+ 	...If PrefSpec.Container'="" Set Container=##class(Supplies.Container).%OpenId(PrefSpec.Container)
+ 	...Set OutputString="NONE"
+	...If $d(Container) Set OutputString=PrefSpec.Container_"|"_Container.Volume_" "_Container.InterpathDescription
+	...Set ^CacheTemp.ADAM1("AutomationTestList",TNO,PrefSpec.Container)=OutputString
+	..;
+	..Set CNOS=$Get(^T2(XT,TNO,7))
+	..For I=1:1:$Length(CNOS,"*") Set CNO=$Piece(CNOS,"*",I) Quit:CNO=""  Do
+	...Set CXT=CNO#100
+	...Set CNA=$Get(^T2(CXT,CNO,1))
+	...Merge ^CacheTemp.ADAM1("AutomationTestList",CNO)=^CacheTemp.ADAM1("AutomationTestList",TNO)
+	..;Write !,TNO Read DUD
+	;
+	Kill
+		
+	Do ^LIB0110("P")
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.ADAM1("AutomationTestList",TNO)) Quit:TNO=""  Do
+	.Set LEV="" For  Set LEV=$Order(^CacheTemp.ADAM1("AutomationTestList",TNO,LEV)) Quit:LEV=""  Do
+	..Set XT=TNO#100
+	..Set TNA=$Get(^T2(XT,TNO,1))
+	..If TNA["UNLISTED" Quit
+	..If $Get(^T2(XT,TNO,5))>1 Quit
+	..Set Data=^CacheTemp.ADAM1("AutomationTestList",TNO,LEV)
+	..Write !,TNO_"|"_TNA_"|"_Data
+	Do ^LIB0111
+	Quit
+
+UpdateT2ActiveFlagReadFile
+ 	;Set FILE="S:\Temp\ActiveTests.txt"
+ 	Kill ^CacheTemp.ADAM1("UpdateT2ActiveFlag")
+ 	Set FILE="S:\Temp\ActiveTests_12052018.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE  Read DATA Quit:DATA=""  Do 
+ 	.Set TNO=$Piece(DATA,$C(9),1)
+ 	.Set FLG=$Piece(DATA,$C(9),3)
+ 	.Set ^CacheTemp.ADAM1("UpdateT2ActiveFlag",TNO)=FLG
+ 	Close FILE
+ 	Quit
+	;
+UpdateT2ActiveFlag
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.ADAM1("UpdateT2ActiveFlag",TNO)) Quit:TNO=""  Do
+	.Set flg=^CacheTemp.ADAM1("UpdateT2ActiveFlag",TNO)
+	.Set XT=TNO#100
+	.If '$D(^T2(XT,TNO)) Set ^CacheTemp.ADAM1("UpdateT2NoTestList",TNO)="" Quit
+	.Set TNA=$Get(^T2(XT,TNO,1))
+	.Set ^T2(XT,TNO,400)=flg
+	.Write !,TNO,?10,TNA ;Read DUD
+	;
+CheckT2ActiveFlag
+	Kill ^CacheTemp.ADAM1("UpdateT2NoFlag")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If ^T2(XT,TNO,400)'="" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set ^CacheTemp.ADAM1("UpdateT2NoFlag",TNO)=TNO_"|"_TNA
+	Do ^LIB0110("P")
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.ADAM1("UpdateT2NoFlag",TNO)) Quit:TNO=""  Do
+	.Set Data=^CacheTemp.ADAM1("UpdateT2NoFlag",TNO)
+	.Write !,Data
+	Do ^LIB0111
+	Quit
+	;
+SBL9732;
+	Set ^FLG("DI","DEBUG")=0
+	Set ^FLG("DEBUG","REFLEX01")=0
+	Quit
+	;
+	;
+
+SBL9742;
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="201803000000" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do 
+	..If '$D(^L(XP,PNO,92069)) Quit
+	..Set Data=^L(XP,PNO,92069)
+	..If Data["TPMT" 
+	..Write !,PNO
+	Quit
+
+MailStop ; 
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set MailStop=$Get(^DOC(DNO,7))
+	.If MailStop="" Quit
+	.
+
+
+InstrumentReview
+	;^FLG("IFACE","STATUS","AA","IF009A")
+	Set WCT="" For  Set WCT=$Order(^FLG("IFACE","STATUS",WCT)) Quit:WCT=""  Do
+	.Set Interface="" For  Set Interface=$Order(^FLG("IFACE","STATUS",WCT,Interface)) Quit:Interface=""  Do
+	..Set I(Interface)=""
+	Quit
+
+
+TestRPC ; 
+	Kill
+	Set PNO(201803078578)=""
+	Set PNO(201804041778)=""
+	Set PNO(201804048278)=""
+	Set PNO(201803025679)=""
+	Set PNO(201803033579)=""
+	Set PNO(201803064979)=""
+	Set PNO(201804021279)=""
+	Set PNO(201804064779)=""
+	Set PNO(201804050481)=""
+	Set PNO(201803051982)=""
+	Set PNO(201803067082)=""
+	Set PNO(201804025200)=""
+	Set PNO(201803064803)=""
+	Set PNO(201804023103)=""
+	Set PNO(201803004405)=""
+	Set PNO(201803060405)=""
+	Set PNO(201803081605)=""
+	Set PNO(201804053105)=""
+	Set PNO(201804075458)=""
+	Set PNO(201804075450)=""
+	Set PNO(201804038906)=""
+	Set PNO(201803026307)=""
+	Set PNO(201803081107)=""
+	Set PNO(201804002207)=""
+	Set PNO(201804021707)=""
+	Set PNO(201804032307)=""
+	Set PNO(201804049408)=""
+	Set PNO(201804068708)=""
+	Set PNO(201804012209)=""
+	Set PNO(201803004110)=""
+	Set PNO(201803028810)=""
+	Set PNO(201804007710)=""
+	Set PNO(201804014212)=""
+	Set PNO(201804011913)=""
+	Set PNO(201804013413)=""
+	Set PNO(201803012715)=""
+	Set PNO(201803036115)=""
+	;
+	Set PNO="" For  Set PNO=$Order(PNO(PNO)) Quit:PNO=""  Do
+	.Kill flgReject
+	.Set flgReject=$$CheckUnlisted^RPC(PNO)
+	.Write !,PNO,"  ",$Select(flgReject=0:"Printed",flgReject=1:"Not Printed"),"  ",flgReject
+	Quit
+	;
+HL7150CMT
+	Set WCT="AX"
+	Set INST="(3302)~Culture if Indicated = Y~Sample Type = URINE CC~Diagnosis = Z94.0 D89.9 Z79.899~Antibiotics = BACTRIM VALGANCICLOVIR^" 
+	Set TNO="3302"
+	;
+	Set (NTE1,OBX1)=0 ; Initialize counters
+	If INST="" Quit  ; INST (Instructions are pulled from ^(.054)
+	For I=1:1 Set DATA=$P(INST,"^",I) Quit:DATA=""  Do
+	.Kill INS For J=1:1 Set TEXT=$Piece(DATA,"~",J) Quit:TEXT=""  Set INS(J)=TEXT ; Build an INS array
+	.If WCT="AX" Do  Quit  ; For ARUP we use NTE segments
+	..Set AOETNO=$ZSTRIP(INS(1),"*P") ; Get TNO from the notes
+	..If AOETNO'=TNO Quit ; Do not send AOE's for other tests than the one being ordered
+	..Set NXT=1 For  Set NXT=$Order(INS(NXT)) Quit:NXT=""  Do
+	...Set NTE3=$Get(INS(NXT))
+	...Write !,NTE3
+	Quit
+	;
+LABELTEST ; 
+	Kill (PNO,BC,CPGM)
+	Set CPGM="LOG000"
+	;Set CPGM="LOG026"
+	;Set CPGM="LOG027"
+	;Set CPGM="LOG030"
+	Set PNO="201802059921"
+	Do ACCESSION^LOG025
+	ZW
+	QUIT
+TRANSCleanup ; do TRANSCleanup^ADAM1
+	Set SPNO=^PNO(+$H-30)
+	Write !,SPNO
+	Set LC="" For  Set LC=$Order(^PROC("TRA","PR",LC)) Quit:LC=""  Do
+	.Write !,LC
+	.Set WCT="" For  Set WCT=$Order(^PROC("TRA","PR",LC,WCT)) Quit:WCT=""  Do
+	..Write !,"  ",WCT
+	..Set PNO="" For  Set PNO=$Order(^PROC("TRA","PR",LC,WCT,PNO)) Quit:PNO=""  Do
+	...Write !,"     ",PNO
+	...If PNO'<SPNO Quit
+	...Write !,PNO Read DUD
+	...Kill ^PROC("TRA","PR",LC,WCT,PNO)
+	Quit
+	;
+LookupREVUE
+	Do ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set DRN=$Get(^DOC(DNO,6))
+	.If '$D(^FLG("REVUE",DRN)) Quit
+	.Set DNA=$Get(^DOC(DNO,1))
+	.Write !,DNO_"|"_DNA_"|"_DRN
+	Do ^LIB0111
+	Quit
+
+AutoCommentList
+	; ^COM("AUTOCOM",1001,"ALL",
+	Do ^LIB0110("P")
+	Set TNO="" For  Set TNO=$Order(^COM("AUTOCOM",TNO)) Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.Set TNA=^T2(XT,TNO,1)
+	.Set DNO="" For  Set DNO=$Order(^COM("AUTOCOM",TNO,DNO)) Quit:DNO=""  Do
+	..If DNO="ALL" Quit
+	..Set DNA=^DOC(DNO,1)
+	..Write !!,"Test: ",TNO," ",TNA
+	..Write !,"Client: ",DNO," ",DNA
+	..Set LEV="" For  Set LEV=$Order(^COM("AUTOCOM",TNO,DNO,LEV)) Quit:LEV=""  Do
+	...Set LINE=^COM("AUTOCOM",TNO,DNO,LEV)
+	...If LINE=" " Set LINE="<cr>"
+	...Write !,?10,LINE
+	Do ^LIB0111
+	Quit 
+	
+	;
+CordantCleanup
+	Write !, "Enter PNO: " Read PNO
+	If PNO="" Quit
+	Set XP=PNO#100
+	If '$D(^L(XP,PNO)) Quit
+	;
+	;If (^L(XP,PNO,.03)'[70404)&(^L(XP,PNO,.03)'[70403)&(^L(XP,PNO,.03)'[70402)&(^L(XP,PNO,.03)'[70401) Quit
+	If (^L(XP,PNO,.03)'[70089)&(^L(XP,PNO,.03)'[70134) Quit
+	L +^L(XP,PNO)
+	;
+	;Set TESTS="70201*70226*70248*70250*70251*70252*70314"
+	Set TESTS="70091*70093*70094*70095*70136"
+	;
+	For I=1:1:$Length(TESTS,"*") Set TNO=$Piece(TESTS,"*",I) Quit:TNO=""  Do
+	.If '$D(^L(XP,PNO,TNO)) Quit ; Component not on file
+	.If $Piece(^L(XP,PNO,TNO),"*",3)'="" Quit ; Result On File
+	.Kill ^L(XP,PNO,TNO)
+	.Kill ^DLY(328,"DN",PNO,TNO)
+	;
+	Do LCF^SUB004 
+ 	Set $Piece(^L(XP,PNO),"*",1)=TTN
+ 	;
+ 	L -^L(XP,PNO) 
+ 	G CordantCleanup
+	Quit
+
+
+GetTNOInfo
+	Do ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Set TNA=^T2(XT,TNO,1)
+	..Set RefLabNumber=$Get(^T2(XT,TNO,91))
+	..If RefLabNumber="" Quit
+	..Set RefLabName=$Get(^REF(RefLabNumber,1))
+	..Set OrderNumber=$Get(^T2(XT,TNO,96))
+	..Set ResultNumber=$Get(^T2(XT,TNO,97))
+	..Write !,TNO_"|"_TNA_"|"_RefLabNumber_"|"_RefLabName_"|"_OrderNumber_"|"_ResultNumber
+	Do ^LIB0111
+	Quit
+	;
+GetWorkBayTNOList
+	
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Set WorkBays=""
+	..;
+	..Set WCTS=$Get(^T2(XT,TNO,11))
+	..For II=1:1:$Length(WCTS,"*") Set WCT=$Piece(WCTS,"*",II)  Do
+	...If WCT="" Quit
+	...Set CNOS=$Get(^T2(XT,TNO,7))
+	...For I=1:1:$Length(CNOS,"*") Set CNO=$Piece(CNOS,"*",I)  Do
+	....If CNO="" Quit
+	....If '$D(^PROC("LBL",TNO,WCT)) Quit
+	....Set WorkBay=$Piece(^PROC("LBL",TNO,WCT),"_",2)
+	....If WorkBays'[WorkBay Set WorkBays=WorkBays_WorkBay_"^"
+	...Set ^CahceTemp.ADAM1("WWT",WCT,TNO)=WorkBays
+	
+	Do ^LIB0110("P")
+	Set WCT="" For  Set WCT=$Order(^CahceTemp.ADAM1("WWT",WCT)) Quit:WCT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^CahceTemp.ADAM1("WWT",WCT,TNO)) Quit:TNO=""  Do
+	..Set XT=TNO#100
+	..Set TNA=^T2(XT,TNO,1)
+	..Set WorkBays=^CahceTemp.ADAM1("WWT",WCT,TNO)
+	..Set WCTName=$Piece(^SYSTEM("WCT",WCT),"_",1)
+	..Write !,WCT_"|"_WCTName_"|"_TNO_"|"_TNA_"|"_WorkBays
+	Do ^LIB0111
+	Quit
+UpdateAllergyBarcodes
+	;^PROC("LBL",80260,"AA")	=	"0*Y_AWEED_5_SST-S_RN_LINE*ALLER"
+	Set TNO="" For  Set TNO=$Order(^PROC("LBL",TNO)) Quit:TNO=""  Do
+	.Set WCT="AA"
+	.If '$D(^PROC("LBL",TNO,WCT)) Quit
+	.Set WorkBays=$Piece(^PROC("LBL",TNO,WCT),"_",6)
+	.Set BcBay=$Piece(WorkBays,"*",1)
+	.Set ResultBay=$Piece(WorkBays,"*",2)
+	.If ResultBay'="ALLER" Quit
+	.Write !!,"OLD: "_^PROC("LBL",TNO,WCT)
+	.Set $Piece(WorkBays,"*",1)="LINEa"
+	.Set $Piece(^PROC("LBL",TNO,WCT),"_",6)=WorkBays
+	.Write !,"NEW: "_^PROC("LBL",TNO,WCT)
+	.Read DUD
+	Quit
+AsteriskEvaluation(TNO,R) ; Result Asterisk Evaluation
+	New (TNO,R)
+	Set AST=""
+	Set XT=TNO#100
+	Set DATA=^T2(XT,TNO,35)
+	Set TAL=$Piece(DATA,"*",2)
+	Set TAH=$Piece(DATA,"*",3)
+	Set RSL=R 
+	If TAL="",TAH="" Quit AST
+	;
+	If $Extract(RSL,1,2)="<="!($Extract(RSL,1,2)=">=") Set RSL=$Extract(RSL,3,$Length(RSL))
+	;Write !,RSL
+	;
+	If $Extract(RSL,1)="<"!($Extract(RSL,1)=">") Set RSL=$Extract(RSL,2,$Length(RSL))
+	;Write !,RSL
+	;
+	;Evaluate Ratios
+	;Evaluation is done diffrently here.  Proceed with caution.
+	;Per Technicals request Less than values report as HI on the patient report.....
+	If RSL?.N1":".N Do  Quit AST
+	.Set TAL=$Piece(DATA,"*",3)
+	.Set TAH=$Piece(DATA,"*",2)
+	.Set RSL=$$RatioConversion(RSL)
+	.If TAL?.N1":".N Set TAL=$$RatioConversion(TAL)
+	.If TAH?.N1":".N Set TAH=$$RatioConversion(TAH)
+	.If RSL<TAL Set AST=" HI"
+	.If RSL>TAH Set AST=" LO"
+	;
+	If RSL?.N1"-".N Do  Quit AST
+	.Set RSL=$Piece(RSL,"-",2)
+	.If TAL?.N1"-".N Set TAL=$Piece(TAL,"-",2)
+	.If TAH?.N1"-".N Set TAH=$Piece(TAH,"-",2)
+	.If RSL<TAL Set AST=" LO"
+	.If RSL>TAH Set AST=" HI"
+	;
+	If RSL?.N1"+".N Do  Quit AST
+	.Set RSL=$Piece(RSL,"+",1)
+	.If TAL?.N1"+".N Set TAL=$Piece(TAL,"+",1)
+	.If TAH?.N1"+".N Set TAH=$Piece(TAH,"+",1)
+	.If RSL<TAL Set AST=" LO"
+	.If RSL>TAH Set AST=" HI"
+	;
+	If RSL?.N!(RSL?.N1".".N) Do  Quit AST
+	.Write !,TAL
+	.Write !,TAH
+	.Write !,RSL
+	.If RSL<TAL Set AST=" LO"
+	.If RSL>TAH Set AST=" HI"
+	;
+	If RSL?.A Do  Quit AST
+	.If RSL=TAL Set AST=" LO"
+	.If RSL=TAH Set AST=" HI"
+	;
+	If RSL?.N1"/".N Do  Quit AST
+	.Set RSL=$Piece(RSL,"/",1)/$Piece(RSL,"/",2)
+	.If TAL'="" If RSL<TAL Set AST=" LO"
+	.If TAH'="" If RSL>TAH Set AST=" HI"
+	;
+	Quit AST
+ 	;
+RatioConversion(Ratio)
+	;Converts the ratio to an intiger by division.  Then the astrix code can properly evaluate the integer.
+	New (Ratio)
+	;Write !,"Ratio IN: "_Ratio
+	If Ratio'?.N1":".N Quit Ratio
+	Set R1=$Piece(Ratio,":",1)
+	Set R2=$Piece(Ratio,":",2)
+	Set RatioConversion=R1/R2
+	;Write !,"Ratio OUT: "_RatioConversion
+	Quit RatioConversion
+	;
+NoteCleanupSearch; Search for notes that need cleaned up
+	Kill ^CacheTemp.ADAM1("NoteCleanupSearch")
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=201712000000 For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set LEV=.5999 For  Set LEV=$Order(^L(XP,PNO,LEV)) Quit:LEV>.6999  Do
+	...Set CMT=^L(XP,PNO,LEV)
+	...Set CMTType=$Piece(CMT,"*",1)
+	...If CMTType'="T" Quit
+	...Set CMTTestNumber=$Piece(CMT,"*",2)
+	...set ReflexedToTNO=$Piece(CMTTestNumber,"#",1)
+	...Set ReflexedFromTNO=$Piece(CMTTestNumber,"#",1)
+	...If CMTTestNumber["#" Set ^CacheTemp.ADAM1("NoteCleanupSearch",PNO,ReflexedToTNO)=""
+	ZW ^CacheTemp.ADAM1("NoteCleanupSearch")
+	;
+	;Do ^LIB0110("P")
+	;Set PNO="" For  Set PNO=$Order(^CacheTemp.ADAM1("NoteCleanupSearch",PNO)) Quit:PNO=""  Do
+	.;Do NoteCleanup(PNO)
+	.;Do ^ARYSUM
+	.;Set TNO="" For  Set TNO=$Order(^CacheTemp.ADAM1("NoteCleanupSearch",PNO,TNO)) Quit:TNO=""  Do
+	..;Set Route=^DOC(DNO,6)
+	..;Set ClientAddress=^DOC(DNO,2)_" "_$Get(^DOC(DNO,3))_" "_^DOC(DNO,4)
+	..;Set XT=TNO#100
+	..;Set TNA=^T2(XT,TNO,1)
+	..;Write !,PNO,$C(9),PNA,$C(9),TNO,$C(9),TNA,$C(9),DNO,$C(9),DNA,$C(9),Route,$C(9),ClientAddress
+	;Do ^LIB0111
+	Quit
+	;
+NoteCleanup(PNO);
+	New (PNO)
+	Write !,"Examinig PNO: "_PNO
+	Set XP=PNO#100
+	Set LEV=.5999 For  Set LEV=$Order(^L(XP,PNO,LEV)) Quit:LEV>.6999  Do
+	.Set CMT=^L(XP,PNO,LEV) Write !,CMT
+	.Set CMTType=$Piece(CMT,"*",1)
+	.If CMTType'="T" Quit
+	.Set CMTTestNumber=$Piece(CMT,"*",2)
+	.If CMTTestNumber'["70404" Quit
+	.;If CMTTestNumber["#" Set CMTTestNumber=+CMTTestNumber
+	.Kill ^L(XP,PNO,LEV) Read DUD
+	.;Write !,"Old = ",^L(XP,PNO,LEV)
+	.;Set $Piece(CMT,"*",2)=CMTTestNumber
+	.;Set ^L(XP,PNO,LEV)=CMT 
+	.;Write !,"New = "_^L(XP,PNO,LEV) Read DUD
+	Quit
+
+Cordant ; ^HL7("TNO","XLT","99CORDANT","OUT",70077)
+	Set TNO="" For  Set TNO=$Order(^HL7("TNO","XLT","99CORDANT","OUT",TNO)) Quit:TNO=""  Do
+	.Set XT=TNO#100
+	.If '$D(^T2(XT,TNO)) Kill ^HL7("TNO","XLT","99CORDANT","OUT",TNO)
+	.Set WCT=^T2(XT,TNO,11)
+	.If WCT'="DN" Write !,TNO Read Dud Kill ^HL7("TNO","XLT","99CORDANT","OUT",TNO)
+	Quit 
+
+
+UTLFILFUBAR;
+	D ^LIB0110("P")
+	Set PNO="" For  Set PNO=$Order(^CacheTemp.UTLFIL("LOG",PNO)) Quit:PNO=""  Do
+	.Set TNO="" For  Set TNO=$Order(^CacheTemp.UTLFIL("LOG",PNO,TNO)) Quit:TNO=""  Do
+	..Set RSL=^CacheTemp.UTLFIL("LOG",PNO,TNO)
+	..Set XP=PNO#100
+	..Set TST=$Get(^L(XP,PNO,TNO))
+	..Set INI=$Piece(TST,"*",4)
+	..If INI="AutoVerified" Quit
+	..Set WCT=$Piece(TST,"*",5)
+	..Set WCTName=$Piece(^SYSTEM("WCT",WCT),"_",1)
+	..Set DIData=$Get(^PROC("DI","NW",PNO,TNO,1))
+	..Set SampleID=$Piece(DIData,"_",1)
+	..Write !,PNO,$C(9),WCTName,$C(9),TNO,$C(9),RSL,$C(9),SampleID
+	D ^LIB0111
+	Quit
+	;
+ASTTest
+	D ^LIB0110("P")
+	Set PNO="" For  Set PNO=$Order(^CacheTemp.UTLFIL("LOG","NewAST",PNO)) Quit:PNO=""  Do
+	.Set TNO="" For  Set TNO=$Order(^CacheTemp.UTLFIL("LOG","NewAST",PNO,TNO)) Quit:TNO=""  Do
+	..Set DNO=90001
+	..Set R=$Piece(^CacheTemp.UTLFIL("LOG","NewAST",PNO,TNO),"|",1) 
+	..Set AST=$Piece(^CacheTemp.UTLFIL("LOG","NewAST",PNO,TNO),"|",2)
+	..Set XP=PNO#100
+	..Set TST=$Get(^L(XP,PNO,TNO))
+	..If TST="" Quit
+	..Set OnFileResult=$Piece(TST,"*",3)
+	..Set INI=$Piece(TST,"*",4)
+	..Set NewResult=R_AST
+	..If OnFileResult'=NewResult Do
+	...Write !!,"Accession #:",PNO
+	...Write !,"Test #:",TNO
+	...Write !,"Results Entered By:",INI
+	...Write !,"On File: ",OnFileResult
+	...Write !,"New    : ",NewResult ;Read DUD
+	D ^LIB0111
+	Quit
+	;
+AutomateStats
+	Kill ^CacheTemp.Automate("LOG")
+	Set StartDay=+$H-7
+	Set StartPNO=^PNO(StartDay)
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=StartPNO For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Do ^ARYSUM
+	..Set OrderedDate=DO
+	..Set OrderedTime=TO
+	..Set CollectedDate=DC
+	..Set CollectedTime=TC
+	..Set ReceivedDate=DR
+	..Set ReceivedTime=TR
+	..Set TNO="" For  Set TNO=$Order(TST(TNO)) Quit:TNO=""  Do
+	...Set XT=TNO#100
+	...Set TestData=TST(TNO)
+	...Set TestName=$Piece(TestData,"*",1)
+	...Set OTNO=$Piece(TestData,"*",2)
+	...Set Result=$Piece(TestData,"*",3)
+	...Set ResultTech=$Piece(TestData,"*",4)
+	...Set WCT=$Piece(TestData,"*",5)
+	...Set ResultedDT=$Piece(TestData,"*",6)
+	...If ResultedDT="" Quit ; dont report if not resulted
+	...Set %DT=$Piece(ResultedDT,",",1)
+	...Set %TM=$Piece(ResultedDT,",",2) 
+	...Do ^LIB0011
+	...Do ^LIB0013
+	...Set ResultedDate=%DAT4
+	...Set ResultedTime=%TIM
+	...Set Priority=TMG
+	...Set DIData=$Get(^PROC("DI","NW",PNO,TNO,1))
+	...Set SampleID=$Piece(DIData,"_",1)
+	...If $Get(SampleID)="" Set SampleID=PNO
+	...Set DepartmentCode=$Get(^T2(XT,TNO,45))
+	...Set LEV=$Order(^CacheTemp.Automate("LOG",""),-1)+1
+	...Set ^CacheTemp.Automate("LOG",LEV)=OrderedDate_$C(9)_OrderedTime_$C(9)_CollectedDate_$C(9)_CollectedTime_$C(9)_OrderedDate_$C(9)_OrderedTime_$C(9)_ResultedDate_$C(9)_ResultedTime_$C(9)_PNO_$C(9)_SampleID_$C(9)_TNO_$C(9)_TestName_$C(9)_WCT_$C(9)_DepartmentCode_$C(9)_ResultTech_$C(9)_Priority
+	;
+	;Quit
+	Do ^LIB0110("P")
+	Write "OrderedDate"_$C(9)_"OrderedTime"_$C(9)_"CollectedDate"_$C(9)_"CollectedTime"_$C(9)_"ReceivedDate"_$C(9)_"ReceivedTime"_$C(9)_"ResultedDate"_$C(9)_"ResultedTime"_$C(9)_"PNO"_$C(9)_"SampleID"_$C(9)_"TNO"_$C(9)_"TestName"_$C(9)_"WCT"_$C(9)_"DepartmentCode"_$C(9)_"ResultTech"_$C(9)_"Priority"
+	Set LEV="" For  Set LEV=$Order(^CacheTemp.Automate("LOG",LEV)) Quit:LEV=""  Do
+	.Write !,^CacheTemp.Automate("LOG",LEV)
+	Do ^LIB0111
+	Quit
+
+YVMHStats ; Get stats for testing perfomred at
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=201701000000 For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set TNO=999 For  Set TNO=$Order(^L(XP,PNO,TNO)) Quit:TNO=""  Do
+	...Set TestData=^L(XP,PNO,TNO)
+	...Set PWCT=$Piece(TestData,"*",5)
+	...Set OrderedTest=$Piece(TestData,"*",2)
+	...If PWCT'="BP" Quit
+	...Set TNOCNT=$GET(T(OrderedTest,TNO))+1
+	...Set T(OrderedTest,TNO)=TNOCNT
+	;
+	Do ^LIB0110("P")
+	Set OrderedTest="" For  Set OrderedTest=$Order(T(OrderedTest)) Quit:OrderedTest=""  Do
+	.Set TNO="" For  Set TNO=$Order(T(OrderedTest,TNO)) Quit:TNO=""  Do
+	..Set XT=TNO#100
+	..Set TNA=^T2(XT,TNO,1)
+	..Set Count=T(OrderedTest,TNO)
+	..Set String=OrderedTest_$C(9)_TNO_$C(9)_TNA_$C(9)_Count
+	..Write !,String
+	Do ^LIB0111
+	Quit
+	
+
+GetOrderStats; 
+	Set AccessionTotal=0
+	Set EMRAccessionTotal=0
+	Set StandingOrderTotal=0
+	;
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=201701000000 For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set AccessionTotal=AccessionTotal+1
+	..Set ORNO=$Get(^L(XP,PNO,.04)) If ORNO="" Quit
+	..If '$D(^W("HL7ORDER","ORNO",ORNO)) Quit
+	..Kill aryOrder 
+	..Merge aryOrder=^W("HL7ORDER","ORNO",ORNO)
+	..;
+	..If $Piece(aryOrder(.5),"|",1)="DNO" Do ;
+	...Set DNO=$Piece($Piece(aryOrder(1),"|",13),"^",1),DNA=$Piece($Piece(aryOrder(1),"|",13),"^",2)
+	...Set RDNO=$Piece($Piece(aryOrder(1),"|",12),"^",1),RDNA=$Piece($Piece(aryOrder(1),"|",12),"^",2)
+	..;
+	..If $Piece(aryOrder(.5),"|",1)="RDNO" Do  ; File under the Referring Physician
+	...Set DNO=$Piece($Piece(aryOrder(1),"|",12),"^",1),DNA=$Piece($Piece(aryOrder(1),"|",12),"^",2)
+	..;
+	..Set OrderStatus=$Piece(aryOrder(1),"|",15)
+	..If OrderStatus="SO" Set StandingOrderTotal=StandingOrderTotal+1
+	..If $D(^HL7("DNO",DNO)) Set EMRAccessionTotal=EMRAccessionTotal+1
+	; 
+	Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	.Set PNO=201701000000 For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	..Set AccessionTotal=AccessionTotal+1
+	..Set ORNO=$Get(^M(XP,PNO,.04)) If ORNO="" Quit
+	..If '$D(^W("HL7ORDER","ORNO",ORNO)) Quit
+	..Kill aryOrder 
+	..Merge aryOrder=^W("HL7ORDER","ORNO",ORNO)
+	..;
+	..If $Piece(aryOrder(.5),"|",1)="DNO" Do ;
+	...Set DNO=$Piece($Piece(aryOrder(1),"|",13),"^",1),DNA=$Piece($Piece(aryOrder(1),"|",13),"^",2)
+	...Set RDNO=$Piece($Piece(aryOrder(1),"|",12),"^",1),RDNA=$Piece($Piece(aryOrder(1),"|",12),"^",2)
+	..;
+	..If $Piece(aryOrder(.5),"|",1)="RDNO" Do  ; File under the Referring Physician
+	...Set DNO=$Piece($Piece(aryOrder(1),"|",12),"^",1),DNA=$Piece($Piece(aryOrder(1),"|",12),"^",2)
+	..;
+	..Set OrderStatus=$Piece(aryOrder(1),"|",15)
+	..If OrderStatus="SO" Set StandingOrderTotal=StandingOrderTotal+1
+	..If $D(^HL7("DNO",DNO)) Set EMRAccessionTotal=EMRAccessionTotal+1
+	Quit
+	;
+DeleteTestSpesificComments
+	New
+	Write !,"Enter PNO:" Read PNO
+	Set XP=PNO#100
+	If '$D(^L(XP,PNO)) Quit
+	Write !,"Enter TNO:" Read TNO
+	Set XT=TNO#100
+	If '$D(^T2(XT,TNO)) Quit
+	;
+	;T*70403*Notes below apply to: HEROIN-R
+	Set Lev=.6000 For  Set Lev=$Order(^L(XP,PNO,Lev)) Quit:Lev>=.6999  Do
+	.Set Comment=^L(XP,PNO,Lev)
+	.Set Type=$Piece(Comment,"*",1)
+	.If Type'="T" Quit
+	.Set CTNO=$Piece(Comment,"*",2)
+	.If TNO'=CTNO Quit
+	.Write !,Comment
+	.Kill ^L(XP,PNO,Lev)
+	.Read DUD
+	Quit
+	;
+GetAutoConversions
+	Do ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^FLG("TNC",DNO)) Quit:DNO=""  Do
+	.Set DNA=$Get(^DOC(DNO,1))
+	.Set TNO="" For  Set TNO=$Order(^FLG("TNC",DNO,TNO)) Quit:TNO=""  Do
+	..Set ConTo=^FLG("TNC",DNO,TNO)
+	..Write !,DNO,$C(9),DNA,$C(9),TNO,$C(9),ConTo
+	Do ^LIB0111
+	Quit
+	;
+ReflexCheck1
+	D ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^RLG("RLG",DNO)) Quit:DNO=""  Do
+	.Set TNO="" For  Set TNO=$Order(^RLG("RLG",DNO,TNO)) Quit:TNO=""  Do
+	..Set XT=TNO#100
+	..Set TNA=^T2(XT,TNO,1)
+	..Set INC=^T2(XT,TNO,7)
+	..If ^T2(XT,TNO,8)'="" Set INC=^T2(XT,TNO,8)
+	..Set String=""
+	..If INC["/" Do
+	...For I=1:1 Set CNO=$Piece(INC,"/",I) Quit:CNO=""  Do
+	....If CNO'?4.5N Quit
+	....Set XC=CNO#100
+	....Set DATA=^T2(XC,CNO,7) 
+	....For II=1:1 Set XNO=$Piece(DATA,"*",II) Quit:XNO=""  Set String=String_String_"*"_XNO
+	..If INC'["/" For I=1:1 Set XNO=$Piece(INC,"*",I) Quit:XNO=""  Do
+	...If XNO'?4.5N Quit
+	...Set String=String_String_"*"_XNO
+	..W !!,TNO,"    ",TNA
+	..W !,String
+	D ^LIB0111
+	Quit
+	;
+ReflexCheck2
+	D ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^RLG("RLG",DNO)) Quit:DNO=""  Do
+	.Set TNO="" For  Set TNO=$Order(^RLG("RLG",DNO,TNO)) Quit:TNO=""  Do
+	..Set XT=TNO#100
+	..Set WNO=^T2(XT,TNO,9)
+	..If WNO'=100 Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set INC=^T2(XT,TNO,7)
+	..If ^T2(XT,TNO,8)'="" Set INC=^T2(XT,TNO,8)
+	..Set String=""
+	..If INC["/" Do
+	...For I=1:1 Set CNO=$Piece(INC,"/",I) Quit:CNO=""  Do
+	....If CNO'?4.5N Quit
+	....Set XC=CNO#100
+	....Set DATA=^T2(XC,CNO,7) 
+	....For II=1:1 Set XNO=$Piece(DATA,"*",II) Quit:XNO=""  Set String=String_String_"*"_XNO
+	..If INC'["/" For I=1:1 Set XNO=$Piece(INC,"*",I) Quit:XNO=""  Do
+	...If XNO'?4.5N Quit
+	...Set String=String_String_"*"_XNO
+	..W !!,TNO,"    ",TNA
+	..W !,String
+	D ^LIB0111
+	Quit
+	;
+ReflexCheck3
+	D ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^RLG("RLG",DNO)) Quit:DNO=""  Do
+	.If DNO="ALL" Quit
+	.If ^DOC(DNO,25)'="X" Quit
+	.Set DNA=$Get(^DOC(DNO,1))
+	.Write !!,DNO_"  "_DNA
+	.Set TNO="" For  Set TNO=$Order(^RLG("RLG",DNO,TNO)) Quit:TNO=""  Do
+	..Set XT=TNO#100
+	..Set TNA=^T2(XT,TNO,1)
+	..W !,TNO,"    ",TNA
+	D ^LIB0111
+	Quit
+	;
+ReflexCheck4
+	D ^LIB0110("P")
+	Set TNO="" For  Set TNO=$Order(^REFLEX("REFLEX",TNO)) Quit:TNO=""  Do
+	.Set LEV="" For  Set LEV=$Order(^REFLEX("REFLEX",TNO,LEV)) Quit:LEV=""  Do
+	..Set (ReflexRule,ReflexProvider,ProviderCalc,AgeCalc,SexCalc,ResultCalc,ReflexTo)=""
+	..Set ReflexRule=^REFLEX("REFLEX",TNO,LEV)
+	..Set ReflexProvider=$Piece(ReflexRule,"_",1)
+	..;Get AGE Calculation
+	..Set AgeCalc=$Piece(ReflexRule,"_",2)
+	..;Get Sex Calculation
+	..Set SexCalc=$Piece(ReflexRule,"_",3)
+	..;Get Reflex To
+	..Set ReflexTo=$Piece(ReflexRule,"_",5)
+	..;Get ResultCalc
+	..Set ResultCalcData=$Piece(ReflexRule,"_",4)
+	..Set ResultCount=0
+	..Write !,TNO,$C(9),ReflexProvider,$C(9),AgeCalc,$C(9),SexCalc,$C(9),ResultCalcData,$C(9),ReflexTo
+	D ^LIB0111
+	Quit
+	;
+FindPNOTZ
+	Kill ^CacheTemp.ADAM1("TZ","PNO")
+	;Check ^LA
+	;Check ^MA
+	;Check ^L
+	Set RANDOM=$RANDOM(1000)+1
+	Set CNT=0
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="201401000000" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set DNO=+^L(XP,PNO,.02)
+	..Set TZ=$Get(^DOC(DNO,42))
+	..If TZ'="P" Quit
+	..Set CNT=CNT+1
+	..If CNT=RANDOM Write !,PNO Set CNT=0 Set RANDOM=$RANDOM(10000)+1
+	;Check ^M
+	;Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	;.Set PNO="201401000000" For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	;..Set DNO=+^M(XP,PNO,.02)
+	;..Set TZ=$Get(^DOC(DNO,42))
+	;..If TZ'="P" Quit
+	;..Set CNT=CNT+1
+	;..If CNT=RANDOM Write !,PNO Set CNT=0 Set RANDOM=$RANDOM(10000)+1
+	Quit
+	;
+HL7ResultSentLookup
+	Set PNOCNT=0
+	Kill ^CacheTemp.ADAM1("HL7ResultSentLookup","LOG")
+	Set PNO=201708000000 For  Set PNO=$Order(^HL7("REQUEST",PNO)) Quit:PNO=""  Do
+	.Set TNO="" For  Set TNO=$Order(^HL7("REQUEST",PNO,TNO)) Quit:TNO=""  Do
+	..Set ReportedDateTime=$Get(^HL7("REQUEST",PNO,TNO))
+	..If ReportedDateTime="" Quit
+	..Set ReportedDate=+ReportedDateTime
+	..;Write !,PNO," ",ReportedDateTime Read DUD
+	..If ReportedDate="" Quit
+	..If ReportedDate'=64519 Quit
+	..Set ReportedTime=$Piece(ReportedDateTime,",",2)
+	..If ReportedDate="" Quit
+	..If ((ReportedTime<27000)!(ReportedTime>27391)) Quit
+	..Set XP=PNO#100
+	..;
+	..If $D(^L(XP,PNO)) Do ^ARYSUM
+	..If $D(^M(XP,PNO)) Do ^ARYMIC
+	..Set ^CacheTemp.ADAM1("HL7ResultSentLookup","LOG",DNO,ReportedTime,PNO,TNO)=""
+	;
+	D ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^CacheTemp.ADAM1("HL7ResultSentLookup","LOG",DNO)) Quit:DNO=""  Do
+	.Set DNA=^DOC(DNO,1)
+	.Write !!,DNO," ",DNA
+	.Set ReportedTime="" For  Set ReportedTime=$Order(^CacheTemp.ADAM1("HL7ResultSentLookup","LOG",DNO,ReportedTime)) Quit:ReportedTime=""  Do
+	..Set PNO="" For  Set PNO=$Order(^CacheTemp.ADAM1("HL7ResultSentLookup","LOG",DNO,ReportedTime,PNO)) Quit:PNO=""  Do
+	...Write !,PNO I $$^EXT026(PNO) Write " Critical on file"
+	.;Write #
+	D ^LIB0111
+	Quit
+
+SearchLA
+	Set XP="" For  Set XP=$Order(^LA(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^LA(XP,PNO)) Quit:PNO=""  Do
+	..Write !,PNO Read DUD
+	Quit
+	;
+UpdateA
+	Set ^DOC(20980,42)="AK"
+	Set ^DOC(20981,42)="AK"
+	Set ^DOC(20982,42)="AK"
+	Set ^DOC(20983,42)="AK"
+	Set ^DOC(20984,42)="AK"
+	Set ^DOC(20985,42)="AK"
+	Set ^DOC(20986,42)="AK"
+	Set ^DOC(20987,42)="AK"
+	Set ^DOC(20988,42)="AK"
+	Set ^DOC(20989,42)="AK"
+	Set ^DOC(20990,42)="AK"
+	Set ^DOC(21026,42)="AK"
+	Set ^DOC(21027,42)="AK"
+	Set ^DOC(21029,42)="AK"
+	Set ^DOC(21030,42)="AK"
+	Set ^DOC(21031,42)="AK"
+	Set ^DOC(21032,42)="AK"
+	Set ^DOC(21033,42)="AK"
+	Set ^DOC(21034,42)="AK"
+	Set ^DOC(21035,42)="AK"
+	Set ^DOC(21036,42)="AK"
+	Set ^DOC(21100,42)="AK"
+	Set ^DOC(21101,42)="AK"
+	Set ^DOC(21102,42)="AK"
+	Set ^DOC(21103,42)="AK"
+	Set ^DOC(21104,42)="AK"
+	Set ^DOC(21105,42)="AK"
+	Set ^DOC(21106,42)="AK"
+	Set ^DOC(21107,42)="AK"
+	Set ^DOC(21108,42)="AK"
+	Set ^DOC(21109,42)="AK"
+	Set ^DOC(21110,42)="AK"
+	Set ^DOC(21111,42)="AK"
+	Set ^DOC(21112,42)="AK"
+	Set ^DOC(21113,42)="AK"
+	Set ^DOC(21114,42)="AK"
+	Set ^DOC(21115,42)="AK"
+	Set ^DOC(21116,42)="AK"
+	Set ^DOC(21117,42)="AK"
+	Set ^DOC(21118,42)="AK"
+	Set ^DOC(1343,42)="AK"
+	Quit
+	;
+
+RemoveAccessionQuestion
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set Questions=$Get(^DOC(DNO,46))
+	.If Questions="" Quit
+	.Set Length=$Length(Questions,"^")
+	.Set NewQuestions=""
+	.Write !,DNO," - ",Questions
+	.For I=1:1:Length Set RegCode=$Piece(Questions,"^",I) Quit:RegCode=""  Do
+	..If RegCode="1" Quit
+	..Set NewQuestions=NewQuestions_RegCode_"^"
+	.Set ^DOC(DNO,46)=NewQuestions
+	.Write !,DNO," - ",^DOC(DNO,46)
+	.Read DUD
+	Quit
+	;
+
+NoteLength
+	; ^W("HL7ORDER","ORNO","FR 0496","TNO",1943,1,"NTE",1) 
+	Set ORNO="" For  Set ORNO=$Order(^W("HL7ORDER","ORNO",ORNO)) Quit:ORNO=""  Do
+	.Write !,ORNO ;Read DUD
+	.Set TNO="" For  Set TNO=$Order(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO)) Quit:TNO=""  Do
+	..Write !,TNO ;Read DUD
+	..Set Lev="" For  Set Lev=$Order(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,Lev)) Quit:Lev=""  Do
+	...Set NoteLev="" For  Set NoteLev=$Order(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,Lev,"NTE",NoteLev)) Quit:NoteLev=""  Do
+	....Set Note=^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,Lev,"NTE",NoteLev)
+	....Set CMTLength=$Length(Note)
+	....Set OldCMTLength=$Piece($Get(^CacheTemp.Adam1("NoteLength",TNO)),"|",1)
+	....If CMTLength>OldCMTLength Set ^CacheTemp.Adam1("NoteLength",TNO)=CMTLength_"|"_Note
+	Q
+
+CleanupDebug
+	;^CacheTemp.HL73010("LOG","HL73010","64393.45931.607")
+	Set Time="" For  Set Time=$Order(^CacheTemp.HL73010("LOG","HL73010",Time)) Quit:Time=""  Do
+	.If Time<"64414.00000.000" Kill ^CacheTemp.HL73010("LOG","HL73010",Time)
+	Quit
+	;
+TEST2
+	Kill ^CacheTemp.DIBarcodeIssue("PNO")
+	Kill ^CacheTemp.DIBarcodeIssue("LOG")
+	;
+	Set Status="" For  Set Status=$O(^PROC("DI",Status)) Quit:Status=""  Do
+    .Set PNO="" For  Set PNO=$O(^PROC("DI",Status,PNO)) Quit:PNO=""  Do
+    ..Set TNO="" For  Set TNO=$O(^PROC("DI",Status,PNO,TNO)) Quit:TNO=""  Do
+    ...Set LEV="" For  Set LEV=$O(^PROC("DI",Status,PNO,TNO,LEV)) Quit:LEV=""  Do
+    ....Set ID=$E(PNO,3,12)
+    ....Set ID2=$E($P(^PROC("DI",Status,PNO,TNO,LEV),"_",1),1,10)
+    ....;If ID2'=ID Write "ID="_ID_" ID2="_ID2_" TNO="_TNO_" Status="_Status ,! Quit
+    ....If ID2'=ID Set ^CacheTemp.DIBarcodeIssue("PNO",PNO)=""
+    ;
+    ;^MO(201704005302,"64377.38163.950","IntegratePRL3ToAccession.mac")
+    Set PNO="" For  Set PNO=$Order(^CacheTemp.DIBarcodeIssue("PNO",PNO)) Quit:PNO=""  Do
+    .Set LEV="" For  Set LEV=$Order(^MO(PNO,LEV)) Quit:LEV=""  Do
+    ..Set PGM="" For  Set PGM=$Order(^MO(PNO,LEV,PGM)) Quit:PGM=""  Do
+    ...Set PGMCount=$Get(^CacheTemp.DIBarcodeIssue("PNO",PNO,"PGM",PGM))
+    ...If PGMCount="" Set PGMCount=0
+    ...Set PGMCount=PGMCount+1
+    ...Set ^CacheTemp.DIBarcodeIssue("PNO",PNO,"PGM",PGM)=PGMCount
+    ;
+    ;Get Stats as a whole
+    Set PNOCount=0
+    Set PNO="" For  Set PNO=$Order(^CacheTemp.DIBarcodeIssue("PNO",PNO)) Quit:PNO=""  Do
+    .Set PNOCount=PNOCount+1
+    .Set PGM="" For  Set PGM=$Order(^CacheTemp.DIBarcodeIssue("PNO",PNO,"PGM",PGM)) Quit:PGM=""  Do
+    ..Set PGMCount=$Get(^CacheTemp.DIBarcodeIssue("LOG","Total","PGM",PGM))
+    ..If PGMCount="" Set PGMCount=0
+    ..Set PGMCount=PGMCount+1
+    ..Set ^CacheTemp.DIBarcodeIssue("LOG","Total","PGM",PGM)=PGMCount
+    Quit
+
+TEST1 ; 
+	Set PNO="201704060342"
+	Set XP=PNO#100
+	Set CNO=4040
+	Set TYPE="MCF"
+	If ((TYPE="LCF")&('$D(^L(XP,PNO,CNO)))) Write !,"NOT HERE" Quit
+	Write !,"TEST COMPLETE"
+	Quit
+	;
+TESTLOG025
+	F I=1:1 S MICRO=$P($T(MICROEXCLUSIONS+I),";",2) Q:MICRO=""  S MEXC(MICRO)="" 
+	;
+DOCSEARCH ; 
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set DNA=^DOC(DNO,1)
+	.If $Get(^DOC(DNO,25))="X" Quit
+	.If $Get(^DOC(DNO,6))=997 Quit 
+	.Set PRE=^DOC(DNO,45)
+	.If PRE="0*1" Write !, DNO,?7,DNA
+	Quit
+MICROEXCLUSIONS ;
+ 	;4000
+ 	;4006
+ 	;4008
+ 	;4200
+ 	;4202
+ 	;4609
+ 	;4610
+ 	;4890
+ 	;4891
+ 	;4892
+ 	;
+MICROEXCLUSIONSII ;
+ 	;4022
+ 	;4030
+ 	;4032
+ 	;4038
+ 	;4044
+ 	;4045
+ 	;4050
+ 	;4051
+ 	;4204
+ 	;4611
+ 	;4895
+ 	;
+WNOTEST
+	S PNO=201611055893
+	S XP=PNO#100
+	S TNO=999 F  S TNO=$O(^L(XP,PNO,TNO)) Q:TNO=""  D
+	.S DATA=^L(XP,PNO,TNO) I $P(^L(XP,PNO,TNO),"*",3)'="" Q
+	.S XT=TNO#100
+	.S WNO=$Get(^T2(XT,TNO,9))
+	.If WNO="" Write !,TNO
+	Quit
+UpdateModifyLog;
+	
+	Set PNO=201610034765 For  Set PNO=$Order(^MO(PNO)) Quit:PNO=""  Do
+	.If PNO'?12N Quit
+	.Set DT="" For  Set DT=$Order(^MO(PNO,DT)) Quit:DT=""  Do
+	..If DT?5N1"."5N  Do
+	...Set DAT=$P(DT,".",1),TIM=$P(DT,".",2),TIM=TIM*.00001,DATIM=DAT+TIM
+	...Set NewDT=DATIM_".010"
+	...Merge ^MO(PNO,NewDT)=^MO(PNO,DT)
+	...Kill ^MO(PNO,DT)
+	...Write !,PNO,"  ",DT,"  ",NewDT ;Read DUD
+	.Write !,PNO
+	Quit
+UpdateReporting
+	; Discovers unprinted reports, repairs, resets in global L
+	D ^LIB0019 
+	S HI=^PNO($O(^PNO(%TOD-60),-1)),MO=30,MI=31,FO=32,FI=33
+	S XP="" F  S XP=$O(^L(XP)) Q:XP=""  D
+	.K (%TOD,%TOT,%TDT,XP,HI)
+	.S PNO=HI F  S PNO=$O(^L(XP,PNO)) Q:PNO=""  L  D
+	..L +^L(XP,PNO):0 I '$T Q
+	..I $O(^L(XP,PNO,""))="" L  Q  ; Skip stranded entries
+	..D LCF^SUB004 I +^L(XP,PNO)'=TTN S ^(PNO)=TTN_"*"
+	..S DOC=^L(XP,PNO,.02),DNO=+DOC,DRN=$G(^DOC(DNO,6)) S:DRN="" DRN=99
+	..I TTN'=0,$D(^L(XP,PNO,.8)) D DATE^REBUILD Q
+	..I TTN=0,'$D(^L(XP,PNO,.8)) D
+	...I $D(^PRINT("LC",DRN,DNO,PNO)) S STATUS=$G(^PRINT("LC",DRN,DNO,PNO)) Q:STATUS["READY"
+	...I $D(^RP(DRN,DNO,PNO)) I $E(^RP(DRN,DNO,PNO),1)="C" Q
+	...S ERR(1)="LCLEAN_"_PNO,ERR(2)="REPORT UNPRINTED - REQUEUEING",ERR(3)="" D ^LIB0016(.ERR)
+	...S ^RP(DRN,DNO,PNO)="C*"_%TDT_"***LCLEAN",STA="C"
+	...S PGM="LCLEAN" D ^HL7102
+	Quit
+CheckReporting
+	Kill
+	Set HI=201610030000
+	Set CNT=0
+	S XP="" F  S XP=$O(^L(XP)) Q:XP=""  D
+	.S PNO=HI F  S PNO=$O(^L(XP,PNO)) Q:PNO=""  D
+	..I $O(^L(XP,PNO,""))="" Q  ; Skip stranded entries
+	..D LCF^SUB004 I +^L(XP,PNO)'=TTN S ^(PNO)=TTN_"*"
+	..S DOC=^L(XP,PNO,.02),DNO=+DOC,DRN=$G(^DOC(DNO,6)) S:DRN="" DRN=99
+	..I TTN'=0,$D(^L(XP,PNO,.8)) Q
+	..I TTN=0,'$D(^L(XP,PNO,.8)) D
+	...I $D(^PRINT("LC",DRN,DNO,PNO)) Set STATUS=$G(^PRINT("LC",DRN,DNO,PNO))
+	...I '$D(^PRINT("LC",DRN,DNO,PNO)) Set STATUS="OFF PRINT QUE"
+	...If STATUS["READY" Quit
+	...Set RPStatus=$Get(^RP(DRN,DNO,PNO))
+	...I $E(RPStatus,1)="C" Quit
+	...Write !,PNO,?15,DNO,?25,DRN,?30,STATUS,?40,RPStatus ;Read DUD
+	...Set CNT=CNT+1
+	Write !,"Total = "_CNT
+	Quit
+	
+
+CLIMSAccounts ; Prepopulate RAST
+ 	Set FILE="\\pitt\data\Common\ajsie\MLA Name Change\CLIMS_IWEB_Accounts.txt"
+ 	Open FILE  Use $Principal
+ 	For I=1:1 Use FILE  Read DATA Quit:DATA=""  Do 
+ 	.Set ^CacheTemp("CLIMSAccounts",I)=DATA 
+ 	Close FILE
+	Kill
+ 	Set I="" For  Set I=$Order(^CacheTemp("CLIMSAccounts",I)) Quit:I=""  Do
+ 	.Set DNO=^CacheTemp("CLIMSAccounts",I)
+ 	.Set DNA=$Extract(^DOC(DNO,1),1,30)
+	.Set SecurityGroupIDs=$$CLIMSAccountsQuery(DNO)
+	.Write !,DNO,"|",DNA,"|",SecurityGroupIDs
+ 	Kill ^CacheTemp("CLIMSAccounts")
+ 	Quit
+CLIMSAccountsQuery(DNO)
+	New (DNO)
+	Set SecurityGroupIDs=""
+	Set sql="SELECT %NOLOCK SecurityGroupID FROM Library.cSecurityGroupClient WHERE Code = '"_DNO_"'"
+	Set rset=##class(%ResultSet).%New()
+	Set sc=rset.Prepare(sql) ;I 'sc Q -1 ; w !!,"sql Prepare() failed! ",sc,! 
+	Set sc=rset.Execute() ;I 'sc Q -2  ;w !!,"sql Execute() failed! ",sc,! Q -2
+	WHILE rset.Next() 
+		{
+			Set SecurityGroupIDs=rset.Data("SecurityGroupID")_"^"_SecurityGroupIDs
+		}
+
+	Quit SecurityGroupIDs
+
+CLEANUPPROCLBL
+	Set ProcedureCode="" For  Set ProcedureCode=$Order(^PROC("LBL",ProcedureCode)) Quit:ProcedureCode=""  Do
+	.Set WCT="" For  Set WCT=$Order(^PROC("LBL",ProcedureCode,WCT)) Quit:WCT=""  Do
+	..Set OldData=^PROC("LBL",ProcedureCode,WCT)
+	..;Set NewData=$Replace(^PROC("LBL",ProcedureCode,WCT),"_RNN_","_RN_")
+	..Set NewData=$Replace(^PROC("LBL",ProcedureCode,WCT),"_FNN_","_FN_")
+	..;Set NewData=$Replace(^PROC("LBL",ProcedureCode,WCT),"_ANN_","_AN_")
+	..;Set NewData=$Replace(^PROC("LBL",ProcedureCode,WCT),"_RNpN_","_RNp_")
+	..;Set NewData=$Replace(^PROC("LBL",ProcedureCode,WCT),"_FNpN_","_FNp_")
+	..;If $Length($Piece(OldData,"_",5))>3 Read DUD
+	..;If NewData=OldData Quit
+	..Write !!,ProcedureCode,"  ",WCT,!,OldData,!,NewData ;Read DUD
+	..Set ^PROC("LBL",ProcedureCode,WCT)=NewData
+	q
+	;
+LOOKLKN
+	Set PNO="" For  Set PNO=$Order(^LKN(PNO),-1) Quit:PNO=""  Do
+	.Write !,PNO Read DUD
+	q
+CleanUpTRA ; 
+	Set LC = "NP"
+	Set SSN=201606000000
+	Set LC="" For  Set LC=$Order(^PROC("TRA","PNO",LC)) Quit:LC=""  Do
+	.Set WCT="" For  Set WCT=$Order(^PROC("TRA","PNO",LC,WCT)) Quit:WCT=""  Do
+	..Set $Piece(^PROC("TRA","PNO",LC,WCT),"_",1)=SSN
+	..Set $Piece(^PROC("TRA","PNO",LC,WCT),"_",2)=SSN
+	Quit
+CleanUpFiles
+	;Quit
+	For DIR=1:1:9999  {
+	Set FromFileLocation="S:\Spool\Reporting\Printers\"_DIR
+	Set rset=##class(%ResultSet).%New("%Library.File:FileSet")
+	Set sc=rset.Execute(FromFileLocation,"*")
+	While rset.Next()
+	  {
+	    Set FileNameItem=rset.Data("ItemName")
+	    Set From=FromFileLocation_"\"_FileNameItem
+	    Set tStatus=##Class(%File).Delete(From)
+	    Write !,"Deleted "_From_" Status = "_tStatus
+	  }
+	}
+	Quit
+	;
+SetRTE
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set ^DOC(DNO,6)=998
+	.Set ^MODIFIED("MSSQL","DNO",DNO)=""
+	.Write !,DNO ;Read DUD
+	Quit
+CheckRQ
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set RTE=^DOC(DNO,6)
+	.If RTE'=1868 Quit
+	.Write !,DNO
+	.Set ^DOC(DNO,6)=1000
+	Quit
+CleanupPatientFile
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If PNO<201503000001 Quit ; Do not change anything if it happened prior to 2015
+	..If $Get(^L(XP,PNO,.054))["Stream.GlobalCharacter" Write !,PNO
+	Quit
+	;
+CheckCustomFeilds; 
+	D ^LIB0110("P")
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Set DNA=^DOC(DNO,1)
+	.Set Custom=$Get(^DOC(DNO,46))
+	.Set eData="N"
+	.If $D(^HL7("DNO",DNO)) Set eData="Y"
+	.If Custom="" Quit
+	.For I=1:1:$Length(Custom,"^") Set lev=$Piece(Custom,"^",I) Quit:lev=""  Do
+	..Write !,DNO,"|",DNA,"|",lev,"|",eData
+	D ^LIB0111
+	Quit
+	;
+UpdateAllAutoConversions; Update autoconversions for all..
+	;
+	Set TNO="" For  Set TNO=$Order(^FLG("TNC","ALL",TNO)) Quit:TNO=""  Do
+	.Do Update^IntegrateTestFile(TNO,1)
+	Read DUD
+	Quit
+	;
+CheckReflex ; 
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S DNA=^DOC(DNO,1)
+	.S TNO="" F  S TNO=$O(^RLG("RLG",DNO,TNO)) Q:TNO=""  D
+	..S XT=TNO#100,TNA=$P(^T2(XT,TNO,1)," [",1)
+	..S DATA=^RLG("RLG",DNO,TNO),CNO=$P(DATA,"*",1),LO=$P(DATA,"*",2),HI=$P(DATA,"*",3)
+	..If CNO'["^" Quit
+	..If $L(CNO,"^")<3 Quit 
+	..Write !,DNO,"|",TNO,"|",CNO
+	Quit
+	;
+ChangeMDLLines
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.Write !,DNO ;READ DUD
+	.If $Get(^DOC(DNO,114))="MissingDataGroupID@Interpathlab.com"  Do
+	..Set ^DOC(DNO,112)="MDL ID"
+	..Set ^DOC(DNO,114)="MDLID@interpathlab.com"
+	..Write " Changed" ;Read DUD
+	.If $Get(^DOC(DNO,117))="MissingDataGroupID@Interpathlab.com"  Do
+	..Set ^DOC(DNO,115)="MDL ID"
+	..Set ^DOC(DNO,117)="MDLID@interpathlab.com"
+	..Write " Changed" ;Read DUD
+	Write !,"Done"
+	Quit
+	;
+CheckCritical ;
+	S DNO="" F  S DNO=$O(^RLG("CRV",DNO)) Q:DNO=""  D
+	.S TNO="" F  S TNO=$O(^RLG("CRV",DNO,TNO)) Q:TNO=""  D
+ 	..I $D(^FLG("TNC","ALL",TNO)) Write !,"ALL","|",DNO,"|",TNO
+ 	..I $D(^FLG("TNC",DNO,TNO)) Write !,"CLIENT","|",DNO,"|",TNO
+	q
+	;
+GetOrderingCon ; 
+	D ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If ^T2(XT,TNO,56)="X" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set OC=$G(^T2(XT,TNO,6))
+	..If OC="" Quit
+	..Write !,TNO,"|",TNA
+	D ^LIB0111
+	q
+	;
+CheckWRKLST ; 
+	D ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If ^T2(XT,TNO,56)="X" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set WRKLST=$G(^T2(XT,TNO,9))
+	..Quit:WRKLST=""
+	..Set WRKLSTNAME=$Get(^DLY(WRKLST))
+	..Set ^CacheTemp.WRKLST("WRKLST",WRKLST)=""
+	..Write !,TNO,"|",TNA,"|",WRKLST,"|",WRKLSTNAME
+	D ^LIB0111
+	Set WRKLST="" For  Set WRKLST=$Order(^DLY(WRKLST)) Quit:WRKLST=""  Do
+	.If $D(^CacheTemp.WRKLST("WRKLST",WRKLST)) Quit
+	.Set Name=$Get(^DLY(WRKLST))
+	.Write !,WRKLST," ",Name
+	Quit
+	;
+FixMicroReporting
+	Set Count=0
+	Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	..Set CompletedDateTime=$Get(^M(XP,PNO,.8))
+	..If CompletedDateTime="" Quit
+	..Set CompletedDate=+CompletedDateTime
+	..If ((CompletedDate<63435)!(CompletedDate>63438)) Quit ; Not in our date range
+	..Set DNO=$Piece(^M(XP,PNO,.02),"#",1)
+	..If '$D(^HL7("DNO",DNO)) Quit ; Not electronicaly reported.
+	..;If $D(^HL7("REQUEST",PNO)) Quit ; Messages have already been sent
+	..Set OrgReqDate=$Get(^HL7("REQUEST",PNO))
+	..Set OrgReqDate=+OrgReqDate
+	..If OrgReqDate=+$H Quit
+	..D ^ARYMIC
+	..Set RNO="" For  Set RNO=$Order(R(RNO)) Quit:RNO=""  Do
+	...If RNO=4090 Quit
+	...Set ^HL7("REQUEST",PNO,RNO)=""
+	..Set ^HL7("REPORT",DNO,DNO,PNO)=""
+	..Write !,PNO
+	..Set Count=Count+1
+	..Read DUD
+	Quit
+	;
+CheckClientFile
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.If ^DOC(DNO,38)'="I" Quit
+	.Set DNA=^DOC(DNO,1)
+	.Write !,DNO,"|",DNA
+	.Set ^DOC(DNO,38)="O"
+	.Read DUD
+	Quit
+	;
+CHANGECLIENTFILE
+	Set DNO="" For  Set DNO=$Order(^DOC(DNO)) Quit:DNO=""  Do
+	.If ^DOC(DNO,41)'=2 Quit ; if this is not an MCL client then quit
+	.Write !,DNO Read DUD
+	;Upadte LIS Database
+	.Set ^MODIFIED("MSSQL","DNO",DNO)=""
+	q
+	;
+ADDNOPRINT ; 
+	Write !,"Enter Test Number:" Read TNO
+	If TNO="" Quit
+	Set XT=TNO#100
+	If '$D(^T2(XT,TNO)) Quit
+	Set TNA=^T2(XT,TNO,1)
+	Write !,"Add "_TNO_" - "_TNA_"  [Y/N]: " Read ANS
+	If ANS="" Quit
+	I "^Y^N^"'[("^"_ANS_"^") W /BEL," ???"
+	If ANS="Y"  Do
+	.Set ^FLG("NOPRNT",TNO)=TNA
+	.Set ^HL7("NOPRNT",TNO)=TNA
+	.Write !,TNO_" <<Added>>"
+	If ANS="N" Write !,TNO_" <<NOT - Added>>"
+	G ADDNOPRINT
+	QUIT
+	;
+
+VETTESTUPDATE
+ 	
+ 	S FILE="\\pitt\data\Common\ajsie\VETLIST.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S TEMP(I)=DATA 
+ 	C FILE
+ 	S I="" F  S I=$O(TEMP(I)) Q:I=""  D
+ 	.S DATA=TEMP(I)
+ 	.S TNO=$P(DATA,$C(9),1)
+ 	.S XT=TNO#100
+ 	.Write !,"Update TNO - ",TNO Read DUD
+ 	.S ^T2(XT,TNO,55)="N"
+	.S ^T2(XT,TNO,56)="X"
+	.S ^T2(XT,TNO,57)="N"
+	.S ^T2(XT,TNO,58)="N"
+	.S ^T2(XT,TNO,59)="N"
+	.S ^T2(XT,TNO,60)="N"
+	.S ^T2(XT,TNO,199)="On August 1st 2014 ALL Vet Testing was discontinued. Comment entered by Adam Sieders"
+	.S ^MODIFIED("TNO",TNO)="" S ^MODIFIED("MSSQL","TNO",TNO)="" ;Places this test file  on the MODIFIED list so background process knows to update the data into the LIS.cTestFile and LIS.cTestFileConversion classes
+    D BKGRDT^UTL022
+ 	Q
+ 	;
+TestTime ; 
+	Set DateTime="2014-07-26 11:34:16"
+	Set BeginingDate=$ZDATETIMEH(DateTime,5)
+	Write !, BeginingDate
+	q
+FixFubar ; 
+	QUIT ;FLG(HL7MIGRATION no longer in use
+	S PNO="" F  S PNO=$O(^HL7("REQUEST",PNO)) Q:PNO=""  D
+	.S CNO="" F  S CNO=$O(^HL7("REQUEST",PNO,CNO)) Q:CNO=""  D
+	..Set XP=PNO#100
+	..If '$D(^L(XP,PNO)) Quit
+	..Set DNO=$Piece(^L(XP,PNO,.02),"#",1)
+	..I '$D(^FLG("HL7MIGRATION",DNO)) Quit
+	..Set SentDateTime=$G(^HL7("REQUEST",PNO,CNO))
+	..If SentDateTime="" Quit
+	..Set BeginDateTime=$ZDATETIMEH("2014-07-26 11:20:00",5)
+	..Set EndDateTime=$ZDATETIMEH("2014-07-26 11:34:16",5)
+	..Set Date=+BeginDateTime
+	..Set BeginTime=$P(BeginDateTime,",",2)
+	..Set EndTime=$P(EndDateTime,",",2)
+	..Set RequestDate=+SentDateTime
+	..Set RequestTime=$P(SentDateTime,",",2)
+	..If RequestDate'=Date Quit
+	..;Validate Time
+	..If RequestTime<BeginTime Quit
+	..If RequestTime>EndTime Quit
+	..Write !,PNO, "  ",DNO
+	..Write !,"SentDateTime ",$ZDATETIME(SentDateTime,3) 
+	..Set ^CacheTemp.HL7Fubar("REQUEST",PNO,CNO)=""
+	..Set ^HL7("REQUEST",PNO,CNO)=""
+	..Set ^HL7("REPORT",DNO,DNO,PNO)=""
+	..Set ^CacheTemp.HL7Fubar("PNO",PNO)=""
+	..;Read Dud
+	q
+	;
+CheckTNO; 
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Set TNA=^T2(XT,TNO,1)
+	..If ^T2(XT,TNO,5)'=1 Quit
+	..If ^T2(XT,TNO,57)="N" Quit
+	..If ^T2(XT,TNO,26)'="" Quit
+	..If TNO>8999 Quit
+	..If ((TNO>3999)&(TNO<5000)) Quit
+	..Write !,TNO,"|",TNA
+	Quit
+	;
+CheckClient;
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Set ClientInfo=^L(XP,PNO,.02)
+	..Set ClientNumber=$Piece(ClientInfo,"#",1)
+	..Set ClientName=$Piece($Piece(ClientInfo,"#",2),":",1)
+	..Set ProviderName=$Piece($Piece($Piece(ClientInfo,"#",2),":",2),"DR.",2)
+	..Set ProviderName=$Extract(ProviderName,2,$Length(ProviderName))
+	..If ProviderName="" Quit
+	..Write !!,ClientNumber," ",ClientName
+	..Write !,"FreeText Provider: "_ProviderName
+	..Read DUD
+	Quit
+
+CheckPatient;
+	;D ^LIB0110("P")
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..;If $Get(^L(XP,PNO,.1))'="I" Quit
+	..If '$D(^L(XP,PNO,1003)) Quit
+	..Write !,PNO
+	;D ^LIB0111
+	Quit
+	;
+CheckTestsSpecial
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If TNO'=14377 Quit
+	..;If ((^T2(XT,TNO,31)="")&(^T2(XT,TNO,33)="")) Quit
+	..If ^T2(XT,TNO,57)="N" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..;Set Line31="150=17.4-105.7"
+	..;Set Line33="150=14.3-65.8"
+	..;Set ^T2(XT,TNO,31,+$h-3)=Line31,^T2(XT,TNO,31)="",^T2(XT,TNO,33,+$h-3)=Line33,^T2(XT,TNO,33)="" Write !,"Modified - "_TNO Read DUD Q
+	..Set ^T2(XT,TNO,31)="",^T2(XT,TNO,33)="" Write !,"Modified - "_TNO Read DUD Q
+	Q
+	;
+CheckTests
+	;D ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If ((^T2(XT,TNO,31)="")&(^T2(XT,TNO,33)="")) Quit
+	..If ^T2(XT,TNO,57)="N" Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..Set Line31=^T2(XT,TNO,31)
+	..Set Line33=^T2(XT,TNO,33)
+	..If Line31=^T2(XT,TNO,30) Set ^T2(XT,TNO,31,+$h)=Line31,^T2(XT,TNO,31)="",^T2(XT,TNO,33,+$h)=Line33,^T2(XT,TNO,33)="" Write !,"Modified - "_TNO Read DUD Q
+	..Write !!,TNO,?6,TNA
+	..Write !,"LINE 31: "_Line31
+	..Write !,"LINE 33: "_Line33
+	;D ^LIB0111
+	Q
+	;
+GRH ; GET GRH STATS FOR AMENDED REPORTS
+	Set Count=0
+	Set PNO="" For  Set PNO=$Order(^FLG("AMEND",PNO)) Quit:PNO=""  Do
+	.Set XP=PNO#100
+	.If '$D(^L(XP,PNO,.02)) Quit
+	.Set DNO=$Piece(^L(XP,PNO,.02),"#",1)
+	.If DNO'=9011 Quit
+	.Set Count=Count+1
+	.Write !,PNO
+	Quit 
+	
+	;
+GetFLGTNC ; 
+	Set DNO="" FOR  SET DNO=$ORDER(^FLG("TNC",DNO)) QUIT:DNO=""  DO
+	.IF DNO="ALL" QUIT
+	.SET TNO="" FOR  SET TNO=$ORDER(^FLG("TNC",DNO,TNO)) QUIT:TNO=""  DO
+	..SET TEMP(TNO)=""
+	SET TNO="" FOR  SET TNO=$ORDER(TEMP(TNO)) QUIT:TNO=""  DO
+	.SET XT=TNO#100
+	.IF ^T2(XT,TNO,6)'=""
+	.Do Update^IntegrateTestFileNew(TNO,1)
+	.WRITE !!,TNO
+	.Write !,"<<Enter To Continue>>" Read DUD
+	QUIT
+CleanUpSR ; Clean up SR for a Test Number
+	Write !,"Enter TNO : " Read TNO If TNO="" Quit
+	Set XT=TNO#100
+	If '$D(^T2(XT,TNO)) Quit
+	Set ^T2(XT,TNO,200)="" ; Preferred Specimen line
+ 	Set ^T2(XT,TNO,201)="" ; Alternate Specimen Line
+ 	Set ^T2(XT,TNO,202)="" ; Submit Requirments Line
+ 	Set ^T2(XT,TNO,203)="" ; Service Manual Flags
+ 	Set ^T2(XT,TNO,204)="" ; Service Manual Name
+ 	Set ^T2(XT,TNO,205)="" ; Service Manual Alternate Lookup Names
+ 	Set ^T2(XT,TNO,206)=""
+ 	Set ^T2(XT,TNO,207)=""
+ 	Set ^T2(XT,TNO,299)=""
+ 	;Set ^T2(XT,TNO,81)=""
+ 	;Set ^T2(XT,TNO,82)=""
+ 	;Set ^T2(XT,TNO,302)=""
+ 	;Set ^T2(XT,TNO,303)=""
+ 	;Set ^T2(XT,TNO,304)=""
+	;Set ^T2(XT,TNO,305)=""
+	;Set ^T2(XT,TNO,306)=""
+	Do CleanUpSR
+	Quit
+	;
+Dan ; Routine for dan to pull numbers and accessions.
+	Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	.Set PNO=201210000000 For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	..If '$D(^M(XP,PNO,4410)) Quit ; quit if the test is not resulted
+	..Set Source=$Piece(^M(XP,PNO,4410),"*",3)
+	..If Source'["NAIL" Quit
+	..Write !,PNO,?15,Source
+	Quit
+LINE45 ; 
+	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..S DEPARTMENT=$G(^T2(XT,TNO,45))
+	..S DATA(DEPARTMENT)=""
+	ZW
+	Q
+LINE36 ; 
+	S TESTS="97001*97002*97003*97004"
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.I ^DOC(DNO,25)="X" Q
+	.S DATA=^DOC(DNO,36)
+	.S LENGTH=$L(TESTS,"*")
+	.F I=1:1:LENGTH S TEST=$P(TESTS,"*",I)  D
+	..I DATA]TEST S D(DNO)=""
+	S DNO="" F  S DNO=$O(D(DNO)) Q:DNO=""  D
+	.S DNA=^DOC(DNO,1)
+	.W !,DNO,?15,DNA
+	Q
+PMDOB ; 
+L5 ; Birthdate
+	Set PGM="LOG015"
+	Set L(5)=""
+ 	N (L,PGM) W !?5,"Birthdate (Age): "
+ 	I PGM="LOG015" I L(5)="" G L5a
+ 	I $D(L(5)) D  Q
+ 	.S AG=$P(L(5),"*",1),SX=$P(L(5),"*",2),%DT=$P(L(5),"*",3)
+ 	.D ^LIB0013 I %DAT4=0 S %DAT4="" 
+ 	.W ?22,%DAT4,?35,"Age: ",AG,?45,"Sex: ",SX
+L5a 
+	R ?22,AG I AG="" S (AG,DOB)="" G L5c
+ 	I AG?1.3N!(AG?1".".N)!(AG?1.3N1".".N) S DOB="" G L5c
+ 	S %DT=AG D ^LIB0014 I %DAT=0 W /BEL," ???" G L5
+ 	S (%DT,DOB)=%DAT D ^LIB0013 I %DAT=0 W /BEL," ???" G L5
+ 	I $$^LIB0031(%DAT6) W /BEL," ???" G L5
+L5b 
+ 	W ?35,"Age:",AG
+ 	I AG<0!(AG>150) W /BEL," ???" G L5
+L5c 
+	R ?45,"Sex: ",SX S:SX="" SX="N/G" S SX=$$UP^LIB0044(SX) 
+ 	I "^M^F^N^"'[("^"_$E(SX,1)_"^") W /BEL," << ERROR >> M,F or N/G" W ! G L5c
+ 	S SX=$S($E(SX,1)="F":"F",$E(SX,1)="M":"M",1:"N/G")
+ 	S L(5)=AG_"*"_SX_"*"_DOB 
+ 	Q
+ ;
+DITest ; Test charachters for DI
+	Write !,"Test with 16 didgit:"
+	Set ID="201302012345"
+	If $L(ID)>11 Set ID=$E($P(ID,"-",1),7,12) I $$^LIB0033(ID) Quit ; Gets PNO by passing ID to LIB0033.  If PNO does not exist then it Quits
+	Write !,PNO
+	Kill
+	;
+	Write !,"Test with 6 didgit:"
+	S ID="012345" 
+	If $L(ID)<12 I $$^LIB0033(ID) Quit ; Gets PNO by passing ID to LIB0033.  If PNO does not exist then it Quits
+	Write !,PNO
+	Kill
+	Quit
+	;
+
+	;
+FinancialClass
+ 	S sql="SELECT Code,Name,FinancialClassID FROM dbo.tblPayer"
+	W !!,sql
+	S rset=##class(%ResultSet).%New()
+	S sc=rset.Prepare(sql) i 'sc W "ERROR PREPARING:  ",!!,$system.OBJ.DisplayError(%objlasterror) Quit 0
+	S sc=rset.Execute() i 'sc W "ERROR EXECUTING:  ",!!,$system.OBJ.DisplayError(%objlasterror) Quit 0
+	WHILE rset.Next()
+ 	{
+		Set ^CacheTemp.FinancialClassMatch("Payer",rset.Data("Code"))=rset.Data("FinancialClassID")_"_"_rset.Data("Name")
+ 	}
+ 	;
+ 	S sql="SELECT ID,Code FROM dbo.tblFinancialClass"
+	W !!,sql
+	S rset=##class(%ResultSet).%New()
+	S sc=rset.Prepare(sql) i 'sc W "ERROR PREPARING:  ",!!,$system.OBJ.DisplayError(%objlasterror) Quit 0
+	S sc=rset.Execute() i 'sc W "ERROR EXECUTING:  ",!!,$system.OBJ.DisplayError(%objlasterror) Quit 0
+	WHILE rset.Next()
+ 	{
+		Set ^CacheTemp.FinancialClassMatch("FinancialClass",rset.Data("ID"))=rset.Data("Code")
+ 	}
+ 	;
+	S sql="SELECT ClientCode,InsuranceCoCode,InsuranceCoName FROM LIS.cPatRegistrationLog WHERE InsuranceCoCode IS NOT NULL AND ClientCode IS NOT NULL"
+	W !!,sql
+	S rset=##class(%ResultSet).%New()
+	S sc=rset.Prepare(sql) i 'sc W "ERROR PREPARING:  ",!!,$system.OBJ.DisplayError(%objlasterror) Quit 0
+	S sc=rset.Execute() i 'sc W "ERROR EXECUTING:  ",!!,$system.OBJ.DisplayError(%objlasterror) Quit 0
+	WHILE rset.Next()
+ 	{
+		Set InsuranceCoName=rset.Data("InsuranceCoName")
+		Set InsuranceCoCode=rset.Data("InsuranceCoCode")
+		Set ClientCode=rset.Data("ClientCode")
+		Set PayerData=$G(^CacheTemp.FinancialClassMatch("Payer",InsuranceCoCode))
+		Set FinancialClassID=$P(PayerData,"_",1)
+		Set FinancialClassCode=$G(^CacheTemp.FinancialClassMatch("FinancialClass",FinancialClassID))
+		Set ^CacheTemp.FinancialClassMatch("List",ClientCode,InsuranceCoCode)=InsuranceCoName_","_FinancialClassCode
+ 	}
+ 	
+ 	;
+
+ 	Quit
+	;
+UTLBYCLIENT; PULL UTILIZATION BY CLIENT FOR EMR
+	S TOT=0
+	S XP="" F  S XP=$O(^L(XP)) Q:XP=""  D
+	.S PNO=201201000001 F  S PNO=$O(^L(XP,PNO)) Q:PNO=""  D
+	..S DNO=$P($G(^L(XP,PNO,.02)),"#",1)
+	..;I DNO'=7878 ! DNO'=7879 ! DNO'=7880 ! DNO'=7881 ! DNO'=7882 ! DNO'=7877 Q
+	..I (DNO=7877)!(DNO=7878)!(DNO=7879)!(DNO=7880)!(DNO=7881)!(DNO=7882) D
+	...S REQ=$G(^L(XP,PNO,.03)) I REQ="" Q
+	...F I=1:1:$L(REQ,"*") S TREQ=$P(REQ,"*",I) Q:TREQ=""  D
+	....S XT=TREQ#100
+	....S TNA=$P($G(^T2(XT,TREQ,1)),"[",1)
+	....S TEMP(TREQ)=TREQ_$C(9)_TNA
+	...S TOT=TOT+1
+	...W !,PNO
+	W !,"TOTAL ACCESSIONS: ",TOT
+	D ^LIB0110("P")
+	S TNO="" F  S TNO=$O(TEMP(TNO)) Q:TNO=""  D
+	.W !,TEMP(TNO)
+	D ^LIB0111
+	Q
+CLEANUPDLY ; CLEANUP ALL OF DLY AND REMOVE .002 LEVEL IF THERE IS NO MORE TEST TO BE PERFORMED FOR THAT PATIENT.
+	W !!,"WORKING "
+	S WNO="" F  S WNO=$O(^DLY(WNO)) Q:WNO=""  D
+	.I WNO#10=0 W "."
+	.S LEV="" F  S LEV=$O(^DLY(WNO,LEV)) Q:LEV=""  D
+	..S PNO="" F  S PNO=$O(^DLY(WNO,LEV,PNO)) Q:PNO=""  D
+ 	...S TYP=$P(^LKN(PNO),"^",1)
+ 	...I TYP="MCF" D MCF^SUB004 w !,"used mcf"
+ 	...I TYP="LCF" D LCF^SUB004 w !,"used lcf"
+	...I TTN'=0 Q
+	...I '$D(^DLY(WNO,LEV,PNO,.002)) Q
+	...W !,"KILL ^DLY("_WNO_","_LEV_","_PNO_",.002)"
+	...K ^DLY(WNO,LEV,PNO,.002) R DUD
+	Q
+	;
+CHECKHDR ; CHECK HDR RESULTS FOR PATIENTS NO LONGER ON FILE.  
+	S PNO="" F  S PNO=$O(^HL7("RESULT",PNO)) Q:PNO=""  D
+	.S XP=PNO#100
+	.I $D(^L(XP,PNO)) Q
+	.I $D(^M(XP,PNO)) Q
+	.W !,PNO R DUD
+	.K ^HL7("RESULT",PNO)
+	.W !,"REMOVED "_PNO
+	Q
+
+CheckPath ; Check the pathology company in the LIS
+	K
+	S NOCNT=0,TOTCNT=0
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S PATH=$G(^DOC(DNO,39))
+	.I $G(^DOC(DNO,25))="X" Q
+	.;I '$D(^HL7("DNO",DNO)) Q
+	.I PATH="" W !,"NO PATH DEFINED FOR DNO: ",DNO  D  Q
+	..S NOCNT=$G(TEMP("PATH","NOCNT")) I NOCNT="" S NOCNT=0
+	..S TEMP("PATH","NOCNT")=NOCNT+1
+	..S TOTCNT=$G(TEMP("PATH","TOTAL")) I TOTCNT="" S TOTCNT=0
+	..S TEMP("PATH","TOTAL")=TOTCNT+1
+	.S INCNT=$G(TEMP("PATH",PATH)) I INCNT="" S INCNT=0
+	.S TEMP("PATH",PATH)=INCNT+1
+	.S TOTCNT=$G(TEMP("PATH","TOTAL")) I TOTCNT="" S TOTCNT=0
+	.S TEMP("PATH","TOTAL")=TOTCNT+1
+	.Write !,"BEFORE: "_DNO," = "_^DOC(DNO,39) R DUD
+	.I PATH="MEDICAL LABORATORY ASSOCIATES" S ^DOC(DNO,39)="MLA - Surepath"
+	.I PATH="BLUE MOUNTAIN PATHOLOGY" S ^DOC(DNO,39)="BMP"
+	.Write !,"AFTER: "_DNO," = "_^DOC(DNO,39) R DUD
+	Q
+	;
+CBHAFIX ; 
+	S PNO=201202000001 F  S PNO=$O(^HL7("REQUEST",PNO)) Q:PNO=""  D
+	.S XP=PNO#100
+	.I '$D(^L(XP,PNO)) Q ; PATIENT DOES NOT EXIST
+	.S DNO=$P(^L(XP,PNO,.02),"#",1)
+	.S ROUTE=^DOC(DNO,6)
+	.S DIR=$G(^HL7("DNO",DNO))
+	.I DIR'=308 Q ; NOT CBHA
+	.I ^L(XP,PNO,.08)'="" Q ; REPORT COMPLETED
+	.D ^SUB004
+	.I TTN'=0 Q ; THERE IS OUTSTANDING TEST THEY WILL SOON GO OUT
+	.W !!,"PATIENT: ",PNO,"  DNO: ",DNO,"  DIR: ",DIR,"  ROUTE: ",ROUTE
+	.R DUD
+	Q
+	;
+
+MICTEST ; 
+	K  S $ZT="ERROR^ADAM1"
+	;S RSL="DA; ;GN;"
+	W !!?4,"Free Text Results: " R RSL I RSL="" Q
+	S VAR(1)=RSL,VAR(2)="" I $$^MIC014(.VAR) D
+	.S RSL=VAR(2) W !!?4,/BEL,"Translated Result: " S VAR(1)=23,VAR(2)=80,VAR(3)=RSL,SC=$$^LIB0032(.VAR)
+TEXTa	.W !?4,"Results OK? <Y>: " R OK S:OK="" OK="Y" S OK=$$UP^LIB0044(OK) I "^Y^N^"'[("^"_OK_"^") W /BEL," ???" G TEXTa
+	.I OK["N" Q
+	Q
+	;
+ERROR ;
+	w !! ZW
+	Q
+loopinput ;loop input test
+	W !,"Enter Num: " R num 
+	I num="" g loopinputA
+	s Array(num)=""
+	g loopinput
+loopinputA
+	W !!,"Enter Printer Number : " R IOD Q:IOD=""
+	s PNO="" For  S PNO=$Order(Array(PNO)) Q:PNO=""  Do
+	.D ^ARYSUM
+	.h .5
+	.zw
+	q
+	;
+TESTIF028 ; TEST IF028
+	S RSL="12",JST=1,LO=0,HI=25,FLG="",PAG=1,ORD=1
+	I RSL?.N!(RSL?.N1".".N) S RSL=$J(RSL,0,JST) I ((RSL<LO)!(RSL>HI)) S R(2,14)="YES"
+	I (RSL["+++++")!(RSL["-----")!(RSL[".....")!(RSL[":::::")!(RSL["?????") S RSL="",R(2,14)="YES"
+	I FLG["V"!(FLG["R") S RSL="",R(2,14)="YES"
+	S R(PAG,ORD)=RSL
+	W
+	Q
+	;
+TESTAST ; TEST THE CHECKING OF THE ASTRIX VALUE IN SUB035 AND SUB034
+	S LEV=$G(^ADAM("TESTAST")) I LEV="" S LEV=1
+	I LEV>100000 Q
+	S TEST(3325)="NEGITIVE^TRACE^30^100^500"
+	S TEST(3335)="NEGITIVE^15^50^150"
+	S TEST(3345)="NEGITIVE^TRACE^10^50^250"
+	S TNO="" F  S TNO=$O(TEST(TNO)) Q:TNO=""  D
+	.S RESULTS=TEST(TNO)
+	.S LENGTH=$L(RESULTS,"^")
+	.F I=1:1:LENGTH  S R=$P(RESULTS,"^",I) Q:R=""  D
+	..S VAR(1)=R
+	..S VAR(2)=TNO
+	..S VAR(5)=9001
+	..S VAR(6)=""
+	..S VAR(7)=""
+	..D ^SUB035(.VAR)
+	..S ^ADAM("TESTAST",LEV,TNO)=R_"_"_VAR(4)
+	..S LEV=LEV+1,^ADAM("TESTAST")=LEV
+	G TESTAST
+	Q
+	;
+CLEANFLGPROC ; 
+	S LC="" F  S LC=$O(^FLG("PROC",LC)) Q:LC=""  D
+	.S ^FLG("PROC",LC)=""
+	Q
+WBCCLEAN ; CLEAN UP WBC ISSUE
+	S LPNO=200911027588,CNT=0,ASTLO=4.5
+	S XP="" F  S XP=$O(^L(XP)) Q:XP=""  D
+	.S PNO="" F  S PNO=$O(^L(XP,PNO)) Q:PNO=""  D
+	..I PNO<LPNO Q
+	..I '$D(^L(XP,PNO,3010)) Q
+	..S OLDDATA=^L(XP,PNO,3010)
+	..S RSL=$P(^L(XP,PNO,3010),"*",3)
+	..S OLDRSL=RSL
+	..I RSL'["LO" Q
+	..I RSL<ASTLO Q
+	..S CNT=CNT+1
+	..S RSL=$P(RSL," ",1)
+	..S ^ADAM("WBCLOG","OLDDATA",PNO)=OLDDATA
+	..S $P(^L(XP,PNO,3010),"*",3)=RSL
+	..S ^ADAM("WBCLOG","NEWDATA",PNO)=^L(XP,PNO,3010)
+	..W !!,"NEW:  ",RSL,!,"OLD:  ",OLDRSL R DUD
+	W !!,CNT
+	Q
+	;
+997 ; 
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S DNA=^DOC(DNO,1)
+	.S ROUTE=^DOC(DNO,6)
+	.I ROUTE'=997 Q
+	.I $D(^HL7("DNO",DNO)) Q
+	.W !,DNO,?6,DNA
+	D ^LIB0111
+	Q
+	;
+UID ; 
+	D ^LIB0110("P")
+	S PMG="" F  S PMG=$O(^UID("TST",PMG)) Q:PMG=""  D
+	.S SEC=$P(^UID("TST",PMG),"_",1)
+	.I SEC["3" Q
+	.S NAME=$P(^UID("TST",PMG),"_",2)
+	.W !,NAME_" "_SEC
+	D ^LIB0111
+	Q
+	;
+WPID
+	S ORNO="" F  S ORNO=$O(^W("HL7ORDER","ORNO",ORNO)) Q:ORNO=""  D
+	.S DATA=^W("HL7ORDER","ORNO",ORNO,1)
+	.S PID3=$P(DATA,"|",3)
+	.W !,PID3
+	Q
+TESTADAM
+	S ETX="",ETB=1,DEBUG=1
+	S FRAME=^ADAM("IF039A")
+	I $$CHECKSUMIN(FRAME,DEBUG,ETX,ETB) D  Q
+	.I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Checksum FAILD" h .1
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Checksum OK" h .1
+	Q
+	;
+CHECKSUMIN(FRAME,DEBUG,ETX,ETB) ;
+	N (FRAME,PATDATA,DEBUG,ETX,ETB)
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="In Sub-Routine CHECKSUMIN" h .1
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Value of FRAME = "_FRAME h .1
+	S PATDATA=$E(FRAME,2,$L(FRAME)),PATDATA=$E(PATDATA,1,$L(PATDATA)-3) ; Get the actual patient data and store as PATDATA
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Patient Data = "_PATDATA h .1
+	S INSTCSM=$E(FRAME,$L(FRAME)-2,$L(FRAME)-1) ; Get the checksum calculated by the PHD by extracting it from STRING and store as INSTCSM
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Instrument Checksum = "_INSTCSM h .1
+	S CALCSTR=$E(FRAME,1,$L(FRAME)-3) ; Get CALCSTR by extracting it from STRING.
+	I ETX S CALCSTR=CALCSTR_$C(3) ;ADD ETX VALUE TO THE CALCSTR
+	I ETB S CALCSTR=CALCSTR_$C(23) ;ADD ETB VALUE TO THE CALCSTR
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Value of CALCSTR = "_CALCSTR h .1
+	S CALCCSM=$ZCRC(CALCSTR,0) ; Use CALCSTR to calculate CALCCSM and compare it to INSTCSM
+	S %DH=CALCCSM#256 D ^LIB0041 S:$L(%DH)=1 %DH="0"_%DH
+	I DEBUG S ^CacheTemp($ZNSPACE,"LOG","IF0390",$$ZTS^LIB0009)="Calculated Checksum = "_%DH h .1
+	I %DH=INSTCSM Q 0  ; Checksums agreed
+	Q 1  ; Checksum failed
+	;
+IMMUNOCAPTST ; INPORT TSTS TO GLOBAL
+ 	S TNO="" F  S TNO=$O(^IFACE("IF039B",TNO)) Q:TNO=""  D
+ 	.S AS=95
+ 	.S RS=$P(^IFACE("IF039B",TNO),"_",4)
+ 	.S PC=$P(^IFACE("IF039B",TNO),"_",5)
+ 	.S ^IFACE("IFACE","BR","IF0390",TNO)=AS_"_"_RS_"_"_PC
+	Q
+	;
+IMMUNOCAP ; 
+	D ^LIB0110("P")
+	S TNO="" F  S TNO=$O(^IFACE("IFACE","BR","IF0250",TNO)) Q:TNO=""  D
+	.I TNO'?.N Q
+	.S XT=TNO#100
+	.S TNA=^T2(XT,TNO,1)
+	.S TDATA=^IFACE("IFACE","BR","IF0250",TNO)
+	.S RS=$P(TDATA,"_",2)
+	.S T(TNA)=TNO_"*"_RS
+	S TNA="" F  S TNA=$O(T(TNA)) Q:TNA=""  D
+	.S RS=$P(T(TNA),"*",2)
+	.S TNO=$P(T(TNA),"*",1)
+	.W !,$E(TNA,1,30)_$C(9)_TNO_$C(9)_RS
+	D ^LIB0111
+	Q
+	;
+IFACEREV ; INSTRUMENT REVIEW
+	D ^LIB0110("P")
+	S WCT="" F  S WCT=$O(^FLG("IFACE","STATUS",WCT)) Q:WCT=""  D
+	.S WCTDATA=^SYSTEM("WCT",WCT)
+	.S WCTNAME=$P(WCTDATA,"_",1)
+	.S IFACE="" F  S IFACE=$O(^FLG("IFACE","STATUS",WCT,IFACE)) Q:IFACE=""  D
+	..S IFACEDATA=^FLG("IFACE","STATUS",WCT,IFACE,1)
+	..S IFACENAME=$P(IFACEDATA,"^",1)
+	..S IPADDRESS=$P(IFACEDATA,"^",2),PORT=$P(IPADDRESS,"_",2),IPADDRESS=$P(IPADDRESS,"_",1)
+	..S STATUS=$P(IFACEDATA,"^",3)
+	..S INUSE=$P(IFACEDATA,"^",6)
+	..S BKG=$P(IFACEDATA,"^",7)
+	..S IFACEGBL=$E(IFACE,1,5),IFACEGBL=IFACEGBL_0
+	..W !,"INTERFACE REVIEW"
+	..W !,"INTERFACE NAME:",?16,IFACENAME
+	..W !,"WORKCENTER:",?16,WCT
+	..W !,"LOCATION:",?16,WCTNAME
+	..W !,"ROUTINE NAME:",?16,IFACEGBL,!
+	..S CNT=0,TAB=0
+	..S TNO="" F  S TNO=$O(^IFACE("IFACE",WCT,IFACEGBL,TNO)) Q:TNO=""  D
+	...I TNO'?.N Q
+	...S XT=TNO#100
+	...S TNA=^T2(XT,TNO,1)
+	...W ?TAB,TNO," ",$E(TNA,1,30)
+	...S CNT=CNT+1
+	...S TAB=TAB+35
+	...I CNT=2 W ! S CNT=0,TAB=0
+	..W #
+	D ^LIB0111
+	Q
+INTERFACES ; DISPALY A LIST OF ALL INTERFACES
+	D ^LIB0110("P")
+	S WCT="" F  S WCT=$O(^FLG("IFACE","STATUS",WCT)) Q:WCT=""  D
+	.S WCTDATA=^SYSTEM("WCT",WCT)
+	.S WCTNAME=$P(WCTDATA,"_",1)
+	. W !!,"INSTRUMENTS AT "_WCTNAME_"  "_WCT
+	. W !,"PROG NAME",?11,"NAME",?30,"ADDRESS",?45,"PORT",?51,"IN USE",?59,"BKG START"
+	. W !,"--------------------------------------------------------------------------"
+	.S IFACE="" F  S IFACE=$O(^FLG("IFACE","STATUS",WCT,IFACE)) Q:IFACE=""  D
+	..S IFACENUMBER="" F  S IFACENUMBER=$O(^FLG("IFACE","STATUS",WCT,IFACE,IFACENUMBER)) Q:IFACENUMBER=""  D
+	...S IFACEDATA=^FLG("IFACE","STATUS",WCT,IFACE,IFACENUMBER)
+	...S IFACENAME=$P(IFACEDATA,"^",1)
+	...S IPADDRESS=$P(IFACEDATA,"^",2),PORT=$P(IPADDRESS,"_",2),IPADDRESS=$P(IPADDRESS,"_",1)
+	...S STATUS=$P(IFACEDATA,"^",3)
+	...S INUSE=$P(IFACEDATA,"^",6)
+	...S BKG=$P(IFACEDATA,"^",7)
+	...W !,IFACE,?11,IFACENAME,?30,IPADDRESS,?45,PORT,?51,INUSE,?59,BKG
+	D ^LIB0111
+	Q
+	;
+MAILSTOP ; 
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.I ^DOC(DNO,25)["X" Q
+	.S DNA=^DOC(DNO,1)
+	.S MAILSTOP=$G(^DOC(DNO,7)) 
+	.I MAILSTOP="" S MAILSTOP="NULL"
+	.I MAILSTOP="FAX" Q
+	.I MAILSTOP="C/S" Q
+	.S D(MAILSTOP,DNO)=DNA
+	S MAILSTOP="" F  S MAILSTOP=$O(D(MAILSTOP)) Q:MAILSTOP=""  D
+	.S DNO="" F  S DNO=$O(D(MAILSTOP,DNO)) Q:DNO=""  D
+	..S DNA=$G(D(MAILSTOP,DNO))
+	..W MAILSTOP_$C(9)_DNO_$C(9)_DNA_$C(13)
+	D ^LIB0111
+	Q
+	;
+NEWIFACESETUP ; SET THE PROPER GLOBALS FOR A NEW INTERFACE
+	S ^FLG("IFACE","STATUS","AA","IF038A",1)="BIO-RAD phD^172.22.1.250_3000^999^128^LABCLA^N^N"
+	S ^FLG("IF038A","AA","SEQ")=1
+	Q
+FAXNAMEMOD;
+	S ROUTE=999 F  S ROUTE=$O(^RQ(ROUTE)) Q:ROUTE=""  D
+	.I ROUTE'?.N Q
+	.;S $P(^RQ(ROUTE),"*",7)="CLIENT FAX MACHINE"
+	.I (ROUTE'="1130")!("1131")!(ROUTE'="1131")!(ROUTE'="1127")!(ROUTE'="1116")!(ROUTE'="1118")!(ROUTE'="1133")!(ROUTE'="1114")!(ROUTE'="1134")!(ROUTE'="1135")!(ROUTE'="1137")!(ROUTE'="1113")!(ROUTE'="1108")!(ROUTE'="1107")!(ROUTE'="1144")!(ROUTE'="1138")!(ROUTE'="1136")!(ROUTE'="1143")!(ROUTE'="1109")!(ROUTE'="1139")!(ROUTE'="1140") Q
+	.S $P(^RQ(ROUTE),"*",7)="INTERPATH FAX - OKI B2540 MFP"
+	.w !,$P(^RQ(ROUTE),"*",7)
+	Q
+FAXNUMBERMOD;
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.I ^DOC(DNO,6)<1000 Q
+	.S FAXNUMBER=^DOC(DNO,8),FAXNUMBER=$TR(FAXNUMBER,"(",""),FAXNUMBER=$TR(FAXNUMBER,")",""),FAXNUMBER=$TR(FAXNUMBER," ",""),FAXNUMBER=$TR(FAXNUMBER,"-",""),FAXNUMBER=1_FAXNUMBER
+	.W !!,OLDFAXNUMBER,!,FAXNUMBER h .5
+	Q
+ 
+TESTFILEFUBAR
+	s lev="" f  s lev=$o(^COM("AUTOCOM",91252,"ALL",lev)) q:lev=""  d
+	.s data=^COM("AUTOCOM",91252,"ALL",lev)
+	.s charcnt="" f charcnt=1:1:datalg s char=$e(data,charcnt)  d
+	..i char="<" s char="&gl; "
+	..i char=">" s char="&gt; "
+	..s newdata=$g(newdata)_char
+	.w newdata
+	Q
+FAXLOG
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S FLAG=111
+	.S MAILSTOP=^DOC(DNO,7)
+	.S ROUTE=^DOC(DNO,6)
+	.S DNA=^DOC(DNO,1)
+	.I ROUTE=997  S FLAG=999
+	..;I MAILSTOP'["FAX" S FLAG=999
+	.;I ROUTE>1000  D
+	..;I MAILSTOP'["FAX" S FLAG=999
+	.I FLAG=999 W !,DNO,?6,$E(DNA,1,30),?40,MAILSTOP
+	D ^LIB0111
+	Q
+NEWMICRO ;
+	S XP="" F  S XP=$O(^M(XP)) Q:XP=""  D
+	.S PNO="" F  S PNO=$O(^M(XP,PNO)) Q:PNO=""  D
+	..I $D(^M(XP,PNO,.8)) Q
+	..S DNO=+^M(XP,PNO,.02)
+	..S DRN=^DOC(DNO,6)
+	..I $D(^MRP(DRN,DNO,PNO)) W !,PNO," - ON PRINT QUE "_DRN Q ; REPORT IS ON QUE TO PRINT
+	..D MCF^SUB004
+	..I TTN>0 Q
+	..W !,PNO," - <PROBLEM> - "
+	Q
+SELECTTEST ; 
+	W !,"ENTER RESULT: " R RSL
+	Q:RSL=""
+	S NEWRSL=$S(RSL<=1:"0-1",RSL<=3:"2-3",RSL<=6:"4-6",RSL<=11:"7-11",RSL<=20:"12-20",RSL<=40:"21-40",RSL<=50:"41-50",RSL>51:">50")
+	;S X=$S(RSL="0-1":0,RSL="2-3":2,RSL="4-6":5,RSL="7-11":10,RSL="12-20":15,RSL="21-40":30,RSL="41-50":50,RSL="51+":">50",1:RSL) Q
+	W !,"NEW RESULT ",NEWRSL
+	G SELECTTEST
+	Q 
+ORTEST ; 
+	W !,"ENTER EPIRSL: " R EPIRSL Q:EPIRSL=""
+	W !,"ENTER SQURSL: " R SQURSL Q:SQURSL=""  
+	I SQURSL>2!(EPIRSL>2) W !,"SQU IS TOO HIGH" Q
+	W !,"REFLEX"
+	G ORTEST
+	Q
+	;
+CLEARBLOOD ;
+	S WCT="AA" 
+	F WKL=90,92 D
+	.S PNO="" F  S PNO=$O(^DLY(WKL,WCT,PNO)) Q:PNO=""  D
+	..I $D(^DLY(WKL,WCT,PNO,.004)) K ^DLY(WKL,WCT,PNO,.004) 
+	..Q
+	Q
+TEST ; CONVERT TO ASCII 
+	K
+	S CNT=0,CHRCNT=0,DEBUG=1,OUTETB=0,OUTETX=0
+	S HEXOUT=^CacheTemp("adam")
+	S FRAMENUMBER=1,FRAME=""
+	F J=1:2:$L(HEXOUT)  D
+	.S CNT=CNT+1 ,CHRCNT=CHRCNT+2
+	.S HEX=$E(HEXOUT,J,J+1) ;W !,CNT,?5,HEX R DUD
+	.S FRAME=$G(FRAME)_HEX
+	.S CHAR=$C($ZHEX(HEX))
+	.S INSTRING=$G(INSTRING)_CHAR
+	.I CNT=120 I J+1'=$L(HEXOUT) S CNT=0 S OUTETB=1
+	.I CNT'=120 I J+1=$L(HEXOUT) S CNT=0 S OUTETX=1
+	.I CNT-120 I J+1=$L(HEXOUT) S CNT=0 S OUTETX=1
+	.S OUTFRAME=FRAMENUMBER_FRAME
+	.I OUTETB  D  S OUTETB=0
+	..S OUTFRAME=OUTFRAME_$C(23)
+	..D CHKSUMOUT(OUTFRAME,DEBUG)
+	..S OUTFRAME=$C(2)_OUTFRAME_%DH_$C(13)_$C(10)
+	..W !!,INSTRING
+	..W !!,OUTFRAME,!!,CHRCNT,!,%DH R DUD S CHRCNT=0
+	..S FRAMENUMBER=FRAMENUMBER+1 I FRAMENUMBER=8 S FRAMENUMBER=0 
+	..S ^CacheTemp("adam",FRAMENUMBER)=OUTFRAME
+	..S FRAME="",INSTRING=""
+	.I OUTETX  D  S OUTETX=0
+	..S OUTFRAME=OUTFRAME_$C(3) 
+	..D CHKSUMOUT(OUTFRAME,DEBUG)
+	..S OUTFRAME=$C(2)_OUTFRAME_%DH_$C(13)_$C(10)
+	..W !!,INSTRING
+	..W !!,OUTFRAME,!!,CHRCNT,!,%DH R DUD S CHRCNT=0
+	..S FRAMENUMBER=FRAMENUMBER+1 I FRAMENUMBER=8 S FRAMENUMBER=0 
+	..S ^CacheTemp("adam",FRAMENUMBER)=OUTFRAME
+	..S FRAME="",INSTRING=""
+	Q 
+CHKSUMOUT(OUTFRAME,DEBUG) ; Do a checksum calculation
+	N (OUTFRAME,DEBUG,%DH)
+	S CALCCSM=$ZCRC(OUTFRAME,0) ; Use CALCSTR to calculate CALCCSM and compare it to INSTCSM
+	S %DH=CALCCSM#256 D ^LIB0041 S:$L(%DH)=1 %DH="0"_%DH
+	Q
+	;
+MICRODEBUG ; DEBUG MICRO ISSUE
+	D ^LIB0110("P")
+	W !!,"PNO",?15,"COMP DATE",?30,"DNO",?37,"RTE",?43,"PGM"
+	S PGM="" F  S PGM=$O(^TEMP("LOG","MICRODEBUG",PGM)) Q:PGM=""  D
+	.S TIME="" F  S TIME=$O(^TEMP("LOG","MICRODEBUG",PGM,TIME)) Q:TIME=""  D
+	..S DATA=^TEMP("LOG","MICRODEBUG",PGM,TIME)
+	..S RTE=$P(DATA,"_",1)
+	..S DNO=$P(DATA,"_",2)
+	..S PNO=$P(DATA,"_",3),XP=PNO#100
+	..S STA=$P(DATA,"_",4)
+	..S TTN=0 D MCF^SUB004
+	..I TTN'=0 Q ; THERE ARE REPORTS TO HAVE RESULTS ENTERED
+	..S COMP="<<PROBLEM>>"
+	..I '$D(^M(XP,PNO)) Q
+	..I $G(^M(XP,PNO,.8))'="" S COMP=^M(XP,PNO,.8) Q
+	..S TEMP(PNO,TIME)=PNO_"^"_COMP_"^"_DNO_"^"_RTE_"^"_PGM_"^"_STA
+	S PNO="" F  S PNO=$O(TEMP(PNO)) Q:PNO=""  D
+	.W !!
+	.S TIME="" F  S TIME=$O(TEMP(PNO,TIME)) Q:TIME=""  D
+	..S DATA=TEMP(PNO,TIME)
+	..S COMP=$P(DATA,"^",2)
+	..S DNO=$P(DATA,"^",3)
+	..S RTE=$P(DATA,"^",4)
+	..S PGM=$P(DATA,"^",5)
+	..S STA=$P(DATA,"^",6)
+	..W !,PNO,?15,COMP,?30,DNO,?37,RTE,?43,PGM,?50,STA
+	D ^LIB0111
+	Q
+CLEANIF027 ; 
+	S LEV="" F  S LEV=$O(^TEMP("IF0270","DEBUG",LEV)) Q:LEV=""  D
+	.I $G(^TEMP("IF0270","DEBUG",LEV))'["justification" K ^TEMP("IF0270","DEBUG",LEV)
+	;.I $G(^TEMP("IF0270","DEBUG",LEV))["Ending" K ^TEMP("IF0270","DEBUG",LEV)
+	Q
+DOCLKP ;
+	D ^LIB0110("P")
+	W "ID"_$C(9)_"NAME"_$c(9)_"VOICE1"_$c(9)_"FAX1"
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.I $G(^DOC(DNO,91))="" Q
+	.I $G(^DOC(DNO,91))=0 Q
+	.S DNA=^DOC(DNO,1)
+	.S PHONE=^DOC(DNO,5)
+	.S FAX=^DOC(DNO,8),FAX=$TR(FAX,"(",""),FAX=$TR(FAX,")",""),FAX=$TR(FAX,"-",""),FAX=$TR(FAX," ","")
+	.S FAXNUM=1_FAX 
+	.W !,DNO_$C(9)_DNA_$c(9)_PHONE_$c(9)_FAXNUM
+	D ^LIB0111
+	Q
+HEXCON ; 
+	S NEWSTRING="",SEQ=0
+	S HEXSTRING="3C003F0078006D006C002000760065007200730069006F006E003D00220031002E0030002200200065006E0063006F00640069006E0067003D0022005500540046002D003100360022003F003E000D000A003C003F0078006D006C002D007300740079006C00650073006800650065007400200074007900D2"
+	F I=1:2:$L(HEXSTRING)  D
+	.S HEXCODE=$E(HEXSTRING,I,I+1)
+	.;I HEXCODE=("00")!("0A")!("0D") Q
+	.S CHAR=$C($ZHEX(HEXCODE))
+	.I ($A(CHAR)<32)!($A(CHAR)>126) Q
+	.I CHAR="<" I $G(INSTRING)["<SIQ>" S IDNO=$TR(INSTRING,"<SIQ>","") S P(IDNO)="" ;Set local array of patients that need to send data back to Iris.
+	.I CHAR="<" S SEQ=SEQ+1,INSTRING=""
+	.S INSTRING=$G(INSTRING)_CHAR
+	Q
+	;
+XMLTAG;
+	;<SI>_</SI>
+	;<SIQ>_</SIQ>
+	;<SA>_</SA>
+	;<AR>_</AR>
+	;<PF>_</PF>
+	;<RC>_</RC>
+	;<AC>_</AC>
+	;<CM>_</CM>
+	;<ARV>_</ARV>
+	;<AUD>_</AUD>
+	;<QCR>_</QCR>
+	;<ChemQC>_</ChemQC>
+	;
+	;
+RQ ; 
+	D ^LIB0110("P")
+	S CNT=0
+	S RTE="" F  S RTE=$O(^RQ(RTE)) Q:RTE=""  D
+	.I RTE'?.N Q
+	.I RTE>998 Q
+	.I $P(^RQ(RTE),"*",1)'["," Q
+	.S NAME=$P(^RQ(RTE),"*",2)
+	.S NUMBER=$P(^RQ(RTE),"*",1),NUMBER=$P(NUMBER,",",2)
+	.W !!!,"ROUTE: ",RTE,!,"MODEM NUMBER: ",NUMBER,!,"ROUTE NAME :",NAME
+	.S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	..S RT=^DOC(DNO,6)
+	..I RT'=RTE Q
+	..S DNA=^DOC(DNO,1)
+	..S LOC=$P(^DOC(DNO,4),",",1)
+	..S ACT="Y" I ^DOC(DNO,25)="X" S ACT="N"
+	..W !,DNO,?7,LOC,?35,DNA
+	.S CNT=CNT+1
+	W !!,CNT
+	D ^LIB0111
+	Q
+IFACETEST ;TEST PARCING OF THE INTERFACE TEST CODE	
+	S STRING=^CacheTemp("LABCLA","IF0350","CM","1","R","3")
+	F I=25:10:$L(STRING)  D
+	.S TESTDATA=$E(STRING,I,I+9)
+	.S TESTDATA=$TR(TESTDATA," ","")
+	.S TAG=$E(TESTDATA,1,2)
+	.S RSL=$E(TESTDATA,3,$L(TESTDATA)) 
+	.W !,TESTDATA,?15,TAG,?25,RSL
+	W !!,STRING
+	Q	
+ROUTEFIND ; FIND ALL CLIENTS WITH THE SAME ROUTE.
+	K
+	W !,"ENTER ROUTE NUMBER  " R RTE
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S RT=^DOC(DNO,6)
+	.I RT'=RTE Q
+	.S DNA=^DOC(DNO,1)
+	.S ACT="Y" I ^DOC(DNO,25)="X" S ACT="N"
+	.W !,DNO,?7,ACT,?10,DNA
+	D ^LIB0111
+	Q
+TESTFIND;
+	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..S LNO="" F  S LNO=$O(^T2(XT,TNO,LNO)) Q:LNO=""  D
+	...I ^T2(XT,TNO,LNO)["91477" w !,TNO
+	Q
+ACP ; FIND ENTRIES INTO ^ACP
+	D ^LIB0110("P")
+	S CNT=0
+	S PNO="200801000000" F  S PNO=$O(^ACP("INST",PNO)) Q:PNO=""  D
+	.I '$D(^ACP("INST",PNO,3)) Q
+	.S DATA=^ACP("INST",PNO,3)
+	.I DATA'=61017 Q
+	.S CNT=CNT+1
+	.W !,CNT,?5,PNO,?20,DATA
+	D ^LIB0111
+	Q
+FINDLOG
+	S LEV="" F  S LEV=$O(^LOG("TSP",LEV)) Q:LEV=""  D
+	.S NAME=$P(^LOG("TSP",LEV),"_",1) S ARRAY(NAME)=""
+	S LEV="" F  S LEV=$O(^LOG("TSPEX",LEV)) Q:LEV=""  D
+	.S NAME=$P(^LOG("TSPEX",LEV),"_",1) S ARRAY(NAME)=""
+	N (ARRAY)
+	S Username="" F  S Username=$O(ARRAY(Username)) Q:Username=""  D
+	.s FullName=$$GETFULLNAME^LIB0030(Username) 
+	.W !,"USERS NAME =  ",FullName 
+	Q
+	;
+FINDFAXNUM ;  FIND THE GIVEN FAX NUMBER.
+	W !!,"ENTER FAX NUMBER: " R FAXNUMBER
+	W !!!,"THE FOLLOWING CLIENTS HAVE THE SAME FAX NUMBER: "
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S FAX=$G(^DOC(DNO,8))
+	.S FAX=$TR(FAX,"(",""),FAX=$TR(FAX,")",""),FAX=$TR(FAX,"-",""),FAX=$TR(FAX," ","")
+	.I FAXNUMBER'=FAX Q
+	.S DNA=$G(^DOC(DNO,1))
+	.W !,DNO,?6,$E(DNA,1,30),?38,FAX
+	Q
+FAXFIND ;FIND CLIENTS ON ROUTE 190	
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S RT=^DOC(DNO,6) 
+	.I RT'=190 Q
+	.I ^DOC(DNO,25)="X" Q
+	.S FAXNUM=^DOC(DNO,8) I FAXNUM="" Q
+	.S AREACODE=$P(FAXNUM,")",1) S AREACODE=$P(AREACODE,"(",2)
+	.S NUM=$P(FAXNUM,")",2) S NUM=$TR(NUM," ","")
+	.S DATA=$G(TEMP(AREACODE,NUM))
+	.I DATA[DNO Q
+	.S TEMP(AREACODE,NUM)=DNO_"*"_$G(DATA)
+	N (TEMP)
+	S CNT=0
+	S AREACODE="" F  S AREACODE=$O(TEMP(AREACODE)) Q:AREACODE=""  D
+	.S NUM="" F  S NUM=$O(TEMP(AREACODE,NUM)) Q:NUM=""  D
+	..S DATA=$G(TEMP(AREACODE,NUM))
+	..S I=$L(DATA,"*")
+	..W !!,"("_AREACODE_") "_NUM
+	..S CNT=CNT+1
+	..F II=1:1:I S DNO=$P(DATA,"*",II) Q:DNO=""  D
+	...W !,DNO,?6,^DOC(DNO,1)
+	W !!,CNT
+	D ^LIB0111
+	Q
+	;
+FAXLINE ; FIND ALL ACTIVE CLIENTS FAX NUMBER AND OUTPUT
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.I ^DOC(DNO,25)="X" Q
+	.S DNA=^DOC(DNO,1)
+	.S FAXNUM=^DOC(DNO,8)
+	.W !,DNO,$C(9),DNA,$C(9),FAXNUM
+	D ^LIB0111
+	Q
+ADAM10 ; LOOK IN ACTIVE TESTFILES AND FIND PROBLEMS FOR SPEC REQ.
+	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..I ^T2(XT,TNO,59)'["Y" Q
+	..I ^T2(XT,TNO,203)="" D
+	...W !,TNO,?7,"SERVICE MANUAL NAME UNDEFINED"
+	Q
+ADAM10INFO ;
+	;200_PREFERRED SPECIMEN_
+ 	;201_ALTERNATE SPECIMEN_
+ 	;202_SUBMIT REQUIREMENTS_
+ 	;203_SERVICE MANUAL NAMES_
+ 	;204_SERVICE MANUAL FLAGS_
+ 	;205_SM ALTERNATE LOOKUP_ 
+ 	;206_FEE SCHEDUAL TYPE_
+ 	;207_ASK ON ORDER ENTRY_
+ 	;
+FINDPRINTERPROCESS ; FIND ALL PROCESSES THAT ARE RUNNING PRINTERS
+	F PID=1:1:6000 S Process=##class(%SYSTEM.Process).%OpenId(PID) D
+ 	.I Process="" Q
+ 	.S DATA=Process.LastGlobalReference
+ 	.I DATA'["PRINTERS" Q
+ 	.S P(PID)=DATA
+ 	.W PID,?8,DATA
+ 	Q
+ 	;
+ 	;----------------------------------------------------------------------------------------
+SPECALL ; do all subs
+ 	d PARSECON,SETT2,PARSEMETH,PARSEREJECT,PARSESPHAND,PARSETYPE,PARSEVOLUME
+ 	q
+ 	;
+PARSECON ; Parce the container information into the container class.
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\container.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S TEMP(I)=DATA 
+ 	C FILE
+ 	D CONPARSE
+ 	Q 
+	;
+CONPARSE ;PARSE THE DATA
+ 	S I="" F  S I=$O(TEMP(I)) Q:I=""  D
+ 	.S DATA=TEMP(I)
+ 	.S Volume=$P(TEMP(I),$C(9),1)
+ 	.S InterpathDescription=$P(TEMP(I),$C(9),2)
+ 	.S VendorDescription=$P(TEMP(I),$C(9),2)
+ 	.S VendorCatNumber=$P(TEMP(I),$C(9),3)
+ 	.S Price=$P(TEMP(I),$C(9),4)
+ 	.S Vendor=$P(TEMP(I),$C(9),5)
+ 	.S Status=$P(TEMP(I),$C(9),6)
+ 	.D CONSAVE
+ 	Q
+ 	;
+CONSAVE
+ 	S Container=##class(Supplies.Container).%New()
+ 	; Record container Information
+	S Container.Volume=Volume
+ 	S Container.InterpathDescription=InterpathDescription
+	S Container.VendorDescription=VendorDescription
+	S Container.VendorCatNumber=VendorCatNumber
+ 	S Container.Price=Price
+ 	S Container.Vendor=Vendor
+ 	S Container.Status=Status
+ 	; Save the new container	
+ 	s sc=Container.%Save()
+ 	I sc=1 W !,"THE SAVE WAS SUCSESSFULL"
+ 	I sc=0 W !,"AN ERROR OCCURED IN THE SAVE"
+ 	Q
+ 	; 
+ 	; ------------------------------------------------------------------------
+SETT2 ; Prepare T2 for the new fields.
+ 	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+ 	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+ 	..;S ^T2(XT,TNO,200)="" ; Preferred Specimen line
+ 	..;S ^T2(XT,TNO,201)="" ; Alternate Specimen Line
+ 	..;S ^T2(XT,TNO,202)="" ; Submit Requirments Line
+ 	..;S ^T2(XT,TNO,203)="" ; Service Manual Flags
+ 	..;S ^T2(XT,TNO,204)="" ; Service Manual Name
+ 	..;S ^T2(XT,TNO,205)="" ; Service Manual Alternate Lookup Names
+ 	..;S ^T2(XT,TNO,206)=""
+ 	..;S ^T2(XT,TNO,299)=""
+ 	..;S ^T2(XT,TNO,300)=""
+ 	..;S ^T2(XT,TNO,301)=""
+ 	..;S ^T2(XT,TNO,302)=""
+ 	..;S ^T2(XT,TNO,303)=""
+ 	..;S ^T2(XT,TNO,304)=""
+	..;S ^T2(XT,TNO,305)=""
+	..;S ^T2(XT,TNO,306)=""
+	..S ^T2(XT,TNO,307)=""
+	..S ^T2(XT,TNO,308)=""
+	..S ^T2(XT,TNO,309)=""
+	..S ^T2(XT,TNO,207)=""
+	..S ^T2(XT,TNO,299)="" 
+ 	Q
+ 	;-------------------------------------------------------------------------
+ 	;
+PARSEMETH ; Parce the Methodology information into ^FLG(SPEC.
+ 	K ^FLG("SREQ","METH")
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\Methodologies.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^FLG("SREQ","METH",I)=DATA 
+ 	S ^FLG("SREQ","METH")=I
+ 	C FILE
+ 	Q 
+ 	;
+PARSEREJECT ; Parce the Rejection information into ^FLG(SPEC.
+ 	K ^FLG("SREQ","REJECT")
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\RejectionCriteria.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^FLG("SREQ","REJECT",I)=DATA 
+ 	S ^FLG("SREQ","REJECT")=I
+ 	C FILE
+ 	Q 
+ 	;
+PARSESPHAND ; Parce the Rejection information into ^FLG(SPEC.
+ 	K ^FLG("SREQ","SPHAND")
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\SpecialHandling.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^FLG("SREQ","SPHAND",I)=DATA 
+ 	S ^FLG("SREQ","SPHAND")=I
+ 	C FILE
+ 	Q
+ 	;
+PARSETYPE ; Parce the Colection and Specimen information into ^FLG(SPEC.
+ 	K ^FLG("SREQ","TYPE")
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\Submission_Collection_Type.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^FLG("SREQ","TYPE",I)=DATA 
+ 	S ^FLG("SREQ","TYPE")=I
+ 	C FILE
+ 	Q
+ 	;
+PARSEVOLUME ; Parce the Colection and Specimen information into ^FLG(SPEC.
+ 	K ^FLG("SREQ","VOLUME")
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\Volume.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^FLG("SREQ","VOLUME",I)=DATA 
+ 	S ^FLG("SREQ","VOLUME")=I
+ 	C FILE
+ 	Q
+ 	;
+PARSESM
+ 	ZN "LABCLA"
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\ServiceManualFlagUpdate.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S TEMP(I)=DATA 
+ 	C FILE
+ 	S I="" F  S I=$O(TEMP(I)) Q:I=""  D
+ 	.S DATA=TEMP(I)
+ 	.S TNO=$P(DATA,$C(9),1)
+ 	.S FLG=$P(DATA,$C(9),2)
+ 	.S XT=TNO#100
+ 	.S ^T2(XT,TNO,59)=FLG
+ 	ZN "DEVADAM"
+ 	Q
+ 	;
+POPRAST ; Prepopulate RAST
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\popimmunocap.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^CacheTemp("spec",I)=DATA 
+ 	C FILE
+	k
+ 	S ii="" F  S ii=$O(^CacheTemp("spec",ii)) Q:ii=""  D
+ 	.S data=^CacheTemp("spec",ii)
+ 	.s array("locTestNumber",1)=$p(data,$c(9),1)
+ 	.s tna=$p(data,$c(9),2)
+ 	.s array("locServiceManualName",1)=$p(data,$c(9),3)
+ 	.;set pref collect
+ 	.s array("locPrefSpecOnFile",1)=$p(data,$c(9),4)
+ 	.;set submit data
+ 	.s array("locPrefSubVolume",1)=$p(data,$c(9),5)
+ 	.s array("locPrefSubUnit",1)=$p(data,$c(9),6)
+ 	.s array("locPrefSubSpecType",1)=$p(data,$c(9),7)
+ 	.s array("locPrefSubTemp",1)=$p(data,$c(9),8)
+ 	.s array("locPrefSubMinVolume",1)=$p(data,$c(9),9)
+ 	.s array("locPrefSubTranTube",1)=$p(data,$c(9),10)
+ 	.s array("locRejectionCriteria",1)=$p(data,$c(9),11)
+ 	.s array("locStabilityAmbientQuant",1)=$p(data,$c(9),12)
+ 	.s array("locStabilityAmbientUnit",1)=$p(data,$c(9),13)
+ 	.s array("locStabilityRefQuant",1)=$p(data,$c(9),14)
+ 	.s array("locStabilityRefUnit",1)=$p(data,$c(9),15)
+ 	.s array("locStabilityFrozenQuant",1)=$p(data,$c(9),16)
+ 	.s array("locStabilityFrozenUnit",1)=$p(data,$c(9),17)
+ 	.s array("locMethodology",1)=$p(data,$c(9),18)
+	.s array("locPerformed",1)=$p(data,$c(9),19)
+ 	.s array("locReportedQuant1",1)=$p(data,$c(9),20)
+ 	.s array("locReportedQuant2",1)=$p(data,$c(9),21)
+ 	.s array("locReportedUnit",1)=$p(data,$c(9),22)
+ 	.s msg=##class(TestFile.CollectionRequirements).CollectionRequirementsSave(.array)
+	.s msg1=##class(TestFile.Submit).SubmitSave(.array)
+	.s msg2=##class(Interpath.TestFile).SpecReqSave(.array)
+ 	K ^CacheTemp("spec")
+ 	q
+RAST ; Prepopulate RAST
+ 	S FILE="\\pitt\data\Common\ajsie\PROJECT_SAVES\Specimen_Requirments_Project\qoutesimmunocap.txt"
+ 	O FILE  U $P
+ 	F I=1:1 U FILE  R DATA Q:DATA=""  D 
+ 	.S ^CacheTemp("spec",I)=DATA 
+ 	C FILE
+	k
+ 	S ii="" F  S ii=$O(^CacheTemp("spec",ii)) Q:ii=""  D
+ 	.S data=^CacheTemp("spec",ii)
+ 	.s array("locTestNumber",1)=$p(data,$c(9),1)
+	.s array("locPerformed",1)=$p(data,$c(9),2)
+	.s msg2=##class(Interpath.TestFile).SpecReqSave(.array)
+ 	K ^CacheTemp("spec")
+ 	q
+SPECCUP; FIX TO THE SPECIMEN REQUIRMENTS
+	W !,"Starting Cleanup"
+ 	S CNT=^TestFile.SubmitD+1
+ 	F I=1:1 Q:I=CNT  D
+ 	.S Submit=##class(TestFile.Submit).%ExistsId(I)
+ 	.I Submit=0 Q
+ 	.W !,Submit
+ 	.S Submit=##class(TestFile.Submit).%OpenId(I)
+	.f i=1:1:Submit.PreferredSubmit.Count()  d
+	..s PreferredSubmit=Submit.PreferredSubmit.GetAt(i)
+	..i '$d(PreferredSubmit) q
+	..I PreferredSubmit.PrefSubContainer="80 mL Specimen Cups, Sterile" S PreferredSubmit.PrefSubContainer="Sterile Specimen Container"
+	..d PreferredSubmit.%Save()
+	..d PreferredSubmit.%Close()
+	..k PreferredSubmit
+	.f i=1:1:Submit.AlternateSubmit.Count()  d
+	..s AlternateSubmit=Submit.AlternateSubmit.GetAt(i)
+	..i '$d(AlternateSubmit) q
+	..I AlternateSubmit.AltSubContainer="80 mL Specimen Cups, Sterile" S AlternateSubmit.AltSubContainer="Sterile Specimen Container"
+	..d AlternateSubmit.%Save()
+	..d AlternateSubmit.%Close()
+	..k AlternateSubmit
+	.d Submit.%Save()
+	.d Submit.%Close()
+	.k Submit
+	w !,"done."
+	q
+AUTOCOM ; 
+	S TNO="" F  S TNO=$O(^COM("AUTOCOM",TNO)) Q:TNO=""  D
+	.I '$D(^COM("AUTOCOM",TNO,"ALL"))  Q
+	.S XT=TNO#100
+	.I '$D(^T2(XT,TNO)) Q
+	.I $g(^T2(XT,TNO,57))'["Y" Q
+	.i $l(^T2(XT,TNO,7),"*")'>1  D
+	..W !,TNO
+	Q
+	;
+FIND ;
+	S TOTAL=^TestFile.SubmitD
+	F I=1:1:TOTAL+1 S SUBLEV=I  W !!!,"SUBMIT OID = ",SUBLEV D  H 1
+	.s XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D 
+	..S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	...S SUBMIT=$g(^T2(XT,TNO,202))
+	...I SUBMIT=SUBLEV W !,TNO
+	Q
+	;
+LINE6TEST ; FIND LINE 6 IN ALL TEST FILES
+	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..I $g(^T2(XT,TNO,57))'["Y" Q
+	..I $g(^T2(XT,TNO,59))'["Y" Q
+	..S ORDER=$g(^T2(XT,TNO,6))
+	..S TESTS=$g(^T2(XT,TNO,7))
+	..I ORDER'=""  W !,TNO,?8,ORDER,!,?8,TESTS
+	Q
+	;
+FEE ; SET THE NEW FEESCHEDUAL LINE 206 IN ^T2
+ 	S NUM="" F  S NUM=$O(^FEE("NUM",NUM)) Q:NUM=""  D
+ 	.S DATA=^FEE("NUM",NUM)
+ 	.S TNO=$P(DATA,"_",1)
+ 	.S XT=TNO#100
+ 	.I '$D(^T2(XT,TNO)) Q
+ 	.S $P(^T2(XT,TNO,206),"^",1)="Y" 
+ 	.W !,TNO
+ 	.R DUD
+ 	Q
+KILLFEE ; 
+ 	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..S ^T2(XT,TNO,206)=""
+	Q
+	;
+LINE6 ;
+ 	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..I $G(^T2(XT,TNO,6))="" Q 
+	..I $g(^T2(XT,TNO,57))'["Y" Q
+	..I $G(^T2(XT,TNO,203))=""  D
+	...W !,TNO,?8,^T2(XT,TNO,6)
+	Q
+	;
+VALID ; VALIDATE LINES IN TEST FILE.
+	S FLG=0
+	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  S FLG=0  D
+	..S DATA="200^201^202^203^204^205^206^207^299^300^301^302^303^304^305^306^307^308^309"
+	..S LL=$L(DATA,"^")
+	..F I=1:1:LL S LNO=$P(DATA,"^",I) Q:I=""  D
+	...I LNO="" Q
+	...I '$D(^T2(XT,TNO,LNO)) S ^T2(XT,TNO,LNO)="" W !,TNO,?7,LNO R DUD
+	Q
+	;
+RQSET	 ;set new rq levels FOR FAXING
+	F I=1000:1:2000 S ^RQ(I)=I W !,^RQ(I) Q:I=2000
+	Q
+FINDADAM ; 
+	S INI="" F  S INI=$O(^MAIL("RCV",INI)) Q:INI=""  D
+	.S NUM="" F  S NUM=$O(^MAIL("RCV",INI,NUM)) Q:NUM=""  D
+	..S LEV="" F  S LEV=$O(^MAIL("RCV",INI,NUM,LEV)) Q:LEV=""  D
+	...I $G(^MAIL("RCV",INI,NUM,LEV))["ADAM " W !, ^MAIL("RCV",INI,NUM,LEV)
+	Q
+MO ; FIND ENTRIES IN MO
+	S PNO="200805011111" F  S PNO=$O(^MO(PNO)) Q:PNO=""  D
+	.S TIME="" F  S TIME=$O(^MO(PNO,TIME)) Q:TIME=""  D
+	..S PGM="" F  S PGM=$O(^MO(PNO,TIME,PGM)) Q:PGM=""  D
+	...I PGM'="LOG023" Q
+	...I PGM'["REMOVED FROM PRINT FILE" Q
+	...W ^MO(PNO,TIME,PGM),!
+	Q
+LABPNOSEARCH ; FIND REPORTS THAT HAVE NOT COMPLETED
+	K
+	D ^LIB0110("P")
+	S XP="" F  S XP=$O(^L(XP)) Q:XP=""  D
+	.S PNO=200804000000 F  S PNO=$O(^L(XP,PNO)) Q:PNO=""  D ;START SEARCHING START OF MAY
+	..I PNO>200805999999 Q ;NO PATIENTS AFTER MAY
+	..I $G(^L(XP,PNO,.8))'="" Q ;HAS BEEN COMPLETED
+	..;I '$D(^L(XP,PNO,.8)) S NULL="Y"
+	..S TTN=0 D LCF^SUB004
+	..I TTN>0 S COM="P"
+	..I TTN=0 S COM="C"
+	..S DOCINFO=$G(^L(XP,PNO,.02)),DNO=$P(DOCINFO,"#",1),DNA=$P(DOCINFO,"#",2)
+	..;S A(PNO)=DNO_"^"_DNA
+	..S D(DNO,PNO)=COM
+	S PCNT="",CCNT=""
+	S DNO="" F  S DNO=$O(D(DNO)) Q:DNO=""  D
+	.S DNA=^DOC(DNO,1)
+	.S RTE=$G(^DOC(DNO,6))
+	.I RTE'=190 Q
+	.W !!!,DNO,?6,DNA,!,"Route: ",RTE
+	.S PNO="" F  S PNO=$O(D(DNO,PNO)) Q:PNO=""  D
+	..S COM=D(DNO,PNO)
+	..I COM="C" S CCNT=CCNT+1
+	..I COM="P" S PCNT=PCNT+1
+	..W !,"       ",PNO,?25,COM
+	W !!!!,"PRELIMS ",PCNT,"  COMPLETED ",CCNT
+	D ^LIB0111
+	Q
+	;
+MICROPNOSEARCH ; FIND REPORTS THAT HAVE NOT COMPLETED
+	K
+	D ^LIB0110("P")
+	S XP="" F  S XP=$O(^M(XP)) Q:XP=""  D
+	.S PNO=200801000000 F  S PNO=$O(^M(XP,PNO)) Q:PNO=""  D ;START SEARCHING START OF MAY
+	..;I PNO>200808999999 Q ;NO PATIENTS AFTER MAY
+	..I '$D(^M(XP,PNO)) Q
+	..I $G(^M(XP,PNO,.8))'="" Q ;HAS BEEN COMPLETED
+	..;I '$D(^L(XP,PNO,.8)) S NULL="Y"
+	..S TTN=0 D MCF^SUB004
+	..I TTN>0 S COM="P"
+	..I TTN=0 S COM="C"
+	..S DOCINFO=$G(^M(XP,PNO,.02)),DNO=$P(DOCINFO,"#",1),DNA=$P(DOCINFO,"#",2)
+	..;S A(PNO)=DNO_"^"_DNA
+	..S D(DNO,PNO)=COM
+	S PCNT="",CCNT=""
+	S DNO="" F  S DNO=$O(D(DNO)) Q:DNO=""  D
+	.S DNA=^DOC(DNO,1)
+	.S RTE=$G(^DOC(DNO,6))
+	.S PRELIM=$G(^DOC(DNO,44))
+	.;I RTE'=190 Q
+	.W !!!,DNO,?6,DNA,?45,"Route: ",RTE,?60,"Prelims? ",PRELIM
+	.S PNO="" F  S PNO=$O(D(DNO,PNO)) Q:PNO=""  D
+	..S COM=D(DNO,PNO)
+	..I COM="C" S CCNT=CCNT+1
+	..I COM="P" S PCNT=PCNT+1
+	..W !,"       ",PNO,?25,COM
+	W !!!!,"PRELIMS ",PCNT,"  COMPLETED ",CCNT
+	D ^LIB0111
+	Q
+	;
+MRSASEARCH ; 
+	K
+	D ^LIB0110("P")
+	S XP="" F  S XP=$O(^M(XP)) Q:XP=""  D
+	.S PNO=200801000000 F  S PNO=$O(^M(XP,PNO)) Q:PNO=""  D
+	..S DOCINFO=$G(^M(XP,PNO,.02)),DNO=$P(DOCINFO,"#",1),DNA=$P(DOCINFO,"#",2)
+	..I DNO'=3792 Q
+	..S D(PNO)=""
+	S PNO="" F  S PNO=$O(D(PNO)) Q:PNO=""  D
+	.W !,PNO
+	D ^LIB0111
+	Q
+	;
+PRINTFX
+	S TOT=0,CNT=0
+	S DRN="" F  S DRN=$O(^PRINT("FX",DRN)) Q:DRN=""  D
+	.S DNO="" F  S DNO=$O(^PRINT("FX",DRN,DNO)) Q:DNO=""  D
+	..S PNO="" F  S PNO=$O(^PRINT("FX",DRN,DNO,PNO)) Q:PNO=""  D
+	...S TOT=TOT+1
+	...I $G(^PRINT("FX",DRN,DNO,PNO))["PRINTED" W !,DRN,!,DNO,!,PNO,!! S CNT=CNT+1
+	...I $G(^PRINT("FX",DRN,DNO,PNO))["READY" K ^PRINT("FX",DRN,DNO,PNO) W !,"KILLED "_PNO
+	W !, TOT
+	W !,CNT
+	Q
+FINDFORMAT
+	S DNO="" F  S DNO=$O(^DOC(DNO)) Q:DNO=""  D
+	.S FORMAT=^DOC(DNO,40)
+	.I FORMAT=4 W !,DNO
+	Q
+	;
+EMDEONIN1 ; 
+	K
+	S T="" F  S T=$O(^CacheTemp.EmdeonIN1(T)) Q:T=""  D
+	.S DATA=^CacheTemp.EmdeonIN1(T)
+	.S DNO=$P(DATA,"^",1)
+	.S CODE=$P($P(DATA,"|",3),"^",1)
+	.S NAME=$P(DATA,"|",4) If NAME="" S NAME="NO NAME"
+	.W !!,DNO,"  ",CODE,"   ",NAME
+	.I $D(TEMP(DNO,NAME,CODE)) S CNT=TEMP(DNO,NAME,CODE)+1
+	.I '$D(TEMP(DNO,NAME,CODE)) S CNT=1
+	.S TEMP(DNO,NAME,CODE)=CNT
+	ZW TEMP
+	D ^LIB0110("P")
+	S DNO="" F  S DNO=$O(TEMP(DNO)) Q:DNO=""  D
+	.S NAME="" F  S NAME=$O(TEMP(DNO,NAME)) Q:NAME=""  D
+	..S CODE="" F  S CODE=$O(TEMP(DNO,NAME,CODE)) Q:CODE=""  D
+	...W DNO_$C(9)_CODE_$C(9)_NAME,!
+	D ^LIB0111
+	Q
+	;
+DIR
+	set dno="" f  set dno=$o(^HL7("DNO",dno)) q:dno=""  d
+	.i dno'?.N q
+	.set dir=$p(^HL7("DNO",dno),"_",1)
+	.set temp(dir,dno)=""
+	D ^LIB0110("P")
+	set dir="" f  set dir=$o(temp(dir)) q:dir=""  d
+	.set dno="" f  set dno=$o(temp(dir,dno)) q:dno=""  d
+ 	..set dna=^DOC(dno,1)
+ 	..set dirname=$p(^HL7("DIRECTORY",dir),"|",14)
+ 	..w !,dir_$c(9)_dirname_$c(9)_dno_$c(9)_dna
+ 	D ^LIB0111
+	
+	
+	
+	; =======================++++++++++++++++++++++++++++++++++++++++++++++++++++
+	
+ADAM3
+
+CleanUpDLY ; 
+	Set WNO="" For  Set WNO=$Order(^DLY(WNO)) Quit:WNO=""  Do
+	.Set WCT="" For  Set WCT=$Order(^DLY(WNO,WCT)) Quit:WCT=""  Do
+	..Set PNO="" For  Set PNO=$Order(^DLY(WNO,WCT,PNO)) Quit:PNO=""  Do
+	...If PNO<201501000000 Write !,WNO," ",WCT," ",PNO Kill ^DLY(WNO,WCT,PNO) ;Read DUD
+	Quit
+
+CleanupStatus ;
+	Set STATUS="" FOR  SET STATUS=$ORDER(^HL7("STATUS",STATUS)) QUIT:STATUS=""  DO
+	.SET ODNO="" FOR  SET ODNO=$ORDER(^HL7("STATUS",STATUS,ODNO)) QUIT:ODNO=""  DO
+	..SET PNO="" FOR  SET PNO=$ORDER(^HL7("STATUS",STATUS,ODNO,PNO)) QUIT:PNO=""  DO
+	...IF PNO>201503000000 QUIT
+	...;WRITE !,PNO READ DUD
+	...KILL ^HL7("STATUS",STATUS,ODNO,PNO)
+	Quit
+	;
+
+TestDOB
+	Set DOB="2015-05-01"
+	Set DOB=$ZDATEH(DOB,3)
+	Write !,DOB
+	Set Age=$$GetAge^LIB0044(DOB,,"Y")
+ 	Write !,Age
+ 	Quit
+
+PRO	; Provider
+	New (TXT,PRO,FLG,RDNO,ATYPE)
+	Set TXT="Input: "
+	Write !!,TXT Read CCC 
+	If CCC="" S FLG=999 Quit
+	If '(CCC?.N) Do ^TELCORDNA If DNO="" G PRO
+	If '$D(^DOC(CCC)) Write /BEL,"  << ERROR >> No Provider ",DNO," on file",! G PRO
+	If $Get(DNA)="" Set DNA=^DOC(DNO,1) Do DOC(DNO)
+	If DNA["UNLISTED" W /BEL,"  << ERROR >> Please search for a valid provider",! G PRO 
+	Set RDNO=DOC,PRO=DNO_"^"_DNA W " ",DNA
+	If '$D(^DOC(DNO)) Set ATYPE="DNO"
+	Quit
+	;
+DOC(VAR)	; Build Ordering Provider OBR16 and Copy to OBR28
+	New (VAR,DOC)
+	Set CSY="99IPL"
+	Set DUD=$$^LIB0022(VAR)
+	If P(.024)'="" Set DOC=P(.023)_"^"_P(.025)_"^"_P(.024)_"^^^^"_P(.026)_"^"_CSY_"^" Quit
+	Set DOC=P(.023)_"^"_P(.025)_"^^^^^^"_CSY_"^" ; Is a client name
+	Quit
+	;
+CheckW ; 
+	;^W("HL7ORDER","ORNO","BA 1683",1
+	Set ORNO="" For  Set ORNO=$Order(^W("HL7ORDER","ORNO",ORNO)) Quit:ORNO=""  Do
+	.Set Data=^W("HL7ORDER","ORNO",ORNO,1)
+	.Set Length=$Length(Data,"|")
+	.Set CacheTemp(Length)=Length
+	Q
+	;
+CleanCacheTemp
+	k ^CacheTemp.PRL3ToAccession("PRLID")
+	k ^CacheTemp.PRL3ToAccession("PRLIDMicro")
+	k ^CacheTemp.PRL3ToAccession("AOE")
+	k ^CacheTemp.PRL3ToAccession("LOG")
+	k ^CacheTemp.PRL3ToAccession("BARCODE")
+	quit 
+	;
+TestError ; 
+	Write !,"Enter Code: " Read OrderCode
+	If OrderCode="" Quit
+	If (OrderCode="CMT")!(OrderCode="SPIN")!(OrderCode="BCPrinterCode") Write !,"Not Valid" G TestError
+	Write !,"Valid"
+	G TestError
+	Quit
+
+CheckHL7
+	QUIT ;FLG(HL7MIGRATION no longer in use
+	Set DNO="" For  Set DNO=$Order(^HL7("DNO",DNO)) Quit:DNO=""  Do
+	.If $D(^FLG("HL7MIGRATION",DNO)) Q
+	.If DNO'?.N Quit
+	.Set DATA=$Get(^HL7("DNO",DNO))
+	.Set DIR=$P(DATA,"_",1)
+	.Set Discription=$P(^HL7("DIRECTORY",DIR),"|",14)
+	.Set DIR(DIR)=Discription
+	.Set DNA=$Get(^DOC(DNO,1))
+	.Write !,DNO," ",DNA," ",DATA
+	Write !!
+	ZW DIR
+	q
+CheckDrawFee(DRAW,PRLID)
+	NEW (DRAW,PRLID,tSC)
+	Set tSC=0
+	If '$D(DRAW(PRLID)) Quit:tSC
+	Set tSC=DRAW(PRLID)
+	Kill DRAW(PRLID)
+	Quit tSC
+	;
+TESTPNO;
+	Kill
+	Set PRLID=1345251
+	Merge W("LOG",201503065415)=^CacheTemp.PRL3ToAccession("LOG",201503065415)
+	Do UpdateCollection^IntegratePRL3ToAccession(PRLID,.W)
+	Quit
+	;
+TESTMIC
+	F LEV=50:1 Q:$O(M(LEV))=""
+	S LEV=LEV+1
+	Write !,LEV
+	Quit
+	;
+TESTMIC1
+	Set LEV=$Order(M(""),-1)+1 
+	If LEV=1 Set LEV=50
+	Write !,LEV
+	Quit
+	;
+FIXAMB ; 
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO="" For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If PNO<201501000001 Quit ; Do not change anything if it happened prior to 2015
+	..If $Get(^L(XP,PNO,.1))="I" Set ^L(XP,PNO,.1)="O" Write !,PNO
+	Quit
+
+
+SOPRINT ;
+	S %DT=+$H D ^LIB0013
+	;S (FILE,VAR(1))="\\pitt\data\common\"_INI_"\STANDINGORDER"_%DAT6_".TXT",VAR(2)=1,VAR(3)=1,VAR(4)=1,VAR(5)="",VAR(6)=5
+	S (FILE,VAR(1))="//Pitt/data/Specimen Processing/Standing Orders/STANDINGORDER"_%DAT6_".TXT",VAR(2)=1,VAR(3)=1,VAR(4)=1,VAR(5)="",VAR(6)=5
+	I $$^LIB0115(.VAR) U $P W !!,"<< ERROR >> Unable to open a file to create output",!!,"<cr.> to continue: " R DUD Q
+	W !! S VAR(1)=0,VAR(2)=80,VAR(3)="This program will produce a delimited text file in your personal folder. Open the file in Excel and use this file as a mail merge document to create the letters"
+	S SC=$$^LIB0032(.VAR)
+	W !!,"File: ",$TR(FILE,"/","\")
+	S OFST=0 D GETRNG^LOG047
+	W !!,"Working.... this will take a while, please be patient !"
+	U %TRM W "Standing Orders Expiring from ",$E(SDT,5,6),"/",$E(SDT,7,8),"/",$E(SDT,1,4)," to ",$E(EDT,5,6),"/",$E(EDT,7,8),"/",$E(EDT,1,4),$C(13)
+	W "Order ID",$C(9),"Expiration Date",$C(9),"Facility #",$C(9),"Lab Entity",$C(9),"Facility Name",$C(9),"Facility Mailstop",$C(9),"Provider #",$C(9),"Provider Name",$C(9),"Patient Name",$C(9),"Diagnosis",$C(9),"Soc Sec#",$C(9),"Birthdate",$C(9),"Test #",$C(9),"Test Name",$C(9),"Test Notes",$C(9),"Fax Number",$C(13)
+	S ORNO="" F  S ORNO=$O(^W("HL7ORDER","ORNO",ORNO)) Q:ORNO=""  D
+	.I '$D(^W("HL7ORDER","ORNO",ORNO,1)) Quit
+	.S DATA=^W("HL7ORDER","ORNO",ORNO,1)
+	.S OTYP=$P(DATA,"|",15) 
+	.I OTYP'="SO" Q  ; Only Standing Orders
+	.S SDAT=$P(DATA,"|",10)
+	.S EDAT=$P(DATA,"|",11)
+	.S SSN=$P(DATA,"|",6)
+	.S %DT=$P(DATA,"|",7)
+	.S SX=$P(DATA,"|",8) 
+	.D ^LIB0013 S DOB=%DAT4
+	.S EDAT3=$E(EDAT,5,6)_"/"_$E(EDAT,7,8)_"/"_$E(EDAT,1,4)
+	.I DOB=0 S DOB=""
+	.I SSN'="" S SSN=$E(SSN,1,3)_"-"_$E(SSN,4,5)_"-"_$E(SSN,6,9)
+	.I 1=1 D  ; Order qualifies proceed
+	..S PNA=$P(DATA,"|",5)
+	..S RDNO=$P($P(DATA,"|",12),"^",1)
+	..S DNO=$P($P(DATA,"|",13),"^",1)
+	..S RDNA=$G(^DOC(RDNO,1))
+	..S RDLAB=$G(^DOC(RDNO,41))
+	..S DNA=$G(^DOC(DNO,1))
+	..S DLAB=$G(^DOC(DNO,41))
+	..S MS=$G(^DOC(RDNO,7)) ; Mail Stop
+	..S FaxNumber=$G(^DOC(RDNO,8)) ;Fax Number
+	..If FaxNumber="" S FaxNumber=$G(^DOC(DNO,8)) ; If the Fax Number is undefined for the Provider then get it from the Facility
+	..S DX=$G(^W("HL7ORDER","ORNO",ORNO,30))
+	..U %TRM 
+	..W ORNO,$C(9),EDAT3,$C(9),DNO,$C(9),$S(DLAB=2:"Mesa Clinical Laboratory",1:"Interpath Laboratory"),$C(9),DNA,$C(9),MS,$C(9),RDNO,$C(9),RDNA,$C(9),PNA,$C(9),DX,$C(9),SSN,$C(9),DOB
+	..W $C(9) ; Start new column for the test information which is printed in ONE column for formatting
+	..S TNO="",CNT=0 F  S TNO=$O(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO)) Q:TNO=""  D
+	...S NXT="",CNT=CNT+1 F  S NXT=$O(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,NXT)) Q:NXT=""  D
+	....S XT=TNO#100,TNA=$P(^T2(XT,TNO,1)," [",1)
+	....S NTE="",LEV="" F  S LEV=$O(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,NXT,"NTE",LEV)) Q:LEV=""  S NTE=NTE_^(LEV)_" "
+	....;I CNT'=1 W $C(9),$C(9),$C(9),$C(9),$C(9),$C(9),$C(9),$C(9),$C(9),$C(9) ; Get the columns on multi tests to line up
+	....W TNO," ",TNA," ",NTE,"; "
+	..W $C(9),$C(9),$C(9),FaxNumber,$C(13)
+	D ^LIB0111
+	Q
+
+
+MICROTESTS ; 
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If TNO<4000 Quit
+	..If TNO>4999 Quit
+	..Set TNA=^T2(XT,TNO,1)
+	..If $G(^T2(XT,TNO,56))="X" Quit
+	..Write !,TNO,"|",TNA
+	Quit
+
+
+	;0^63613,27947^SJPORTER|201503000381|12101|^63588,51445|HAMMON, DIANA L|544605159|40004|F|541 276-4960|201503010000|201503312400|1239^HARRISON M.D., RUSSELL B. DR:RUSSELL HARRISON MD|1295^HARRISON FAMILY MEDICINE|LAB|NW|T|
+CleanupEORDER ; 
+	Set ORNO="" For  Set ORNO=$Order(^W("HL7ORDER","ORNO",ORNO)) Quit:ORNO=""  Do
+	.Set DATA=^W("HL7ORDER","ORNO",ORNO,1)
+	.Set RNODATA=$Piece(DATA,"|",12)
+	.Set RNO=$Piece(RNODATA,"^",1)
+	.If RNO=9999 Quit
+	.If RNO>8999 Quit
+	.Set RNA=$Piece(RNODATA,"^",2)
+	.;If RNA["DR:" Quit
+	.Set FRNA=$Get(^DOC(RNO,1))
+	.If RNA=FRNA Quit
+	.Write !,ORNO
+	.Set NEWRNODATA=RNO_"^"_FRNA
+	.Set NEWDATA=DATA
+	.Set $Piece(NEWDATA,"|",12)=NEWRNODATA
+	.Set ^CacheTemp.ORNO("ORNO3",ORNO,"OLD")=DATA
+	.Set ^CacheTemp.ORNO("ORNO3",ORNO,"NEW")=NEWDATA
+	.;Set ^W("HL7ORDER","ORNO",ORNO,1)=NEWDATA
+	.;Set ^MODIFIED("MSSQL","ORNO",ORNO)=""
+	.;READ DUD
+	Quit
+
+ ;do eOrderToAccessionUpdate(201503000361,"IT 6053",$G(W),1)^ADAM3
+eOrderToAccessionUpdate
+	;--------------------------------------------------------
+	; 			Get eOrder Information to change on Accession
+	;--------------------------------------------------------
+	;	
+	;
+	Set PNO=201503000381
+	Set OrderCode="IT 1189"
+	Set flgDebug=1
+	Set sql="SELECT FirstName,LastName,MI,ExternalPatientCode,EMROrderCode,ClientCode,ClientName,ProviderCode,ProviderName "
+	Set sql=sql_"FROM LIS_SQL.tblOrder Order "
+	Set sql=sql_"WHERE Order.Code = '"_OrderCode_"'"
+	;
+	If flgDebug Write !!!,sql,!!!
+	;
+	Set rset=##class(%ResultSet).%New()
+	Set sc=rset.Prepare(sql) If 'sc  Quit
+	Set sc=rset.Execute() If 'sc  Quit
+	While rset.Next()
+		{
+			;Set Local Variables
+			Set PatientFirstName=rset.Data("FirstName")
+			Set PatientLastName=rset.Data("LastName")
+			Set PatientMI=rset.Data("MI")
+			Set ExternalPatientCode=rset.Data("ExternalPatientCode")
+			Set EMROrderCode=rset.Data("EMROrderCode")
+			Set DNO=rset.Data("ClientCode")
+			Set DNA=rset.Data("ClientName")
+			Set RDNO=rset.Data("ProviderCode")
+			Set RDNA=rset.Data("ProviderName")
+		
+			;
+			;Modify variables
+			;
+			If $Extract(PatientLastName,1,1)=" " Set $Extract(PatientLastName,1,1)=""
+			If $Extract(PatientLastName,$Length(PatientLastName),$Length(PatientLastName))=" " Set $Extract(PatientLastName,$Length(PatientLastName),$Length(PatientLastName))=""
+			;
+			If $Extract(PatientFirstName,1,1)=" " Set $Extract(PatientFirstName,1,1)=""
+			If $Extract(PatientFirstName,$Length(PatientFirstName),$Length(PatientFirstName))=" " Set $Extract(PatientFirstName,$Length(PatientFirstName),$Length(PatientFirstName))=""
+			;
+			Set PNA=PatientLastName_", "_PatientFirstName 
+			;
+			Set PatientMI="J"
+			Set PatientMI=$TR(PatientMI," ","")
+			If ((PatientMI'="")&(PatientMI?.A)) S PNA=PNA_" "_PatientMI
+			;
+			Set PNA=$$UP^LIB0044(PNA) ;convert all to upper case 
+			;
+			;If client and provider are the same do not bring provider over as it hampers the QA process
+			If ((DNO=9999)&(RDNO=9999)) Set RDNO=""
+			If DNO=RDNO Set RDNO="",RDNA=""
+			;
+			;Set DRN.  First by provider then by Client if DRN is null
+			If RDNO'="" S DRN=$G(^DOC(RDNO,6))
+			If $G(DRN)="" S DRN=$G(^DOC(DNO,6))
+			;
+			Set BTYP=^DOC(DNO,30)
+			Set RFMT=^DOC(DNO,40)
+			;
+ 			Set DOC=DNO_"#"_DNA_" :DR. "_RDNA_"#"_DRN_"#"_BTYP_"#"_RFMT
+ 			Set DOC=$$UP^LIB0044(DOC) ;convert all to upper case
+			;
+			;Set eOrder Info back on accession
+			If PNA'="" S $P(W("LOG",PNO),"_",1)=PNA
+			If OrderCode'="" S $P(W("LOG",PNO),"_",3)=OrderCode
+			If ExternalPatientCode'="" S $P(W("LOG",PNO),"_",4)=ExternalPatientCode
+			If DOC'="" S $P(W("LOG",PNO),"_",6)=DOC
+			Set $P(W("LOG",PNO),"_",16)="ON FILE"
+			
+			zw
+			
+		}
+	Kill rset
+	Quit
+
+
+TESTPRINT ;
+	SET PNO=201502012271
+	D ^ARYSUM
+	Set TZ=^DOC(DNO,42) D ^LIB0020 S RDAT=%TOD I DR'="" S %DT=DR D ^LIB0014 S RDAT=%DAT
+	Write !, RDAT
+	S RNO="" F  S RNO=$O(R(RNO)) Q:RNO=""  D
+ 	.S RXT=RNO#100
+ 	.S RNA=R(RNO) 
+ 	.I $O(^T2(RXT,RNO,7,RDAT))="" S INC=^T2(RXT,RNO,7) S:^T2(RXT,RNO,8)'="" INC=^T2(RXT,RNO,8) G w
+ 	.S DATE=$O(^T2(RXT,RNO,7,RDAT)),INC=^T2(RXT,RNO,7,DATE) I $D(^T2(RXT,RNO,8,DATE)) I ^T2(RXT,RNO,8,DATE)'="" S INC=^T2(RXT,RNO,8,DATE)
+w	.Write !, INC
+	Quit
+	;
+T2CHECK
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..Set TNA=^T2(XT,TNO,1)
+	..If TNA["-" Write !,TNO," ",TNA
+	Q
+
+MICCODES ; 
+	Set TNO="" For  Set TNO=$Order(^MICRO("QUE",TNO)) Quit:TNO=""  Do
+	.Set LEV="" For  Set LEV=$Order(^MICRO("QUE",TNO,LEV)) Quit:LEV=""  Do
+	..Set NEGCMT=$Piece(^MICRO("QUE",TNO,LEV,.11),"^",1)
+	..If NEGCMT="" Set NEGCMT=$Piece(^MICRO("QUE",TNO,LEV,.99),"^",1)
+	..If NEGCMT="" Quit
+	..If NEGCMT="NO" Quit
+	..Set NEGCMT=$Replace(NEGCMT,";","")
+	..Set NEWCODE="NEG"_TNO_"-"_LEV
+	..Set ^MICRO("CODE",NEWCODE)=NEGCMT
+	Quit
+
+LINE8; 
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If ^T2(XT,TNO,8)="" Quit
+	..If $l(^T2(XT,TNO,8),"/")=1 Quit
+	..If ^T2(XT,TNO,57)="N" Quit
+	..Set Line8=^T2(XT,TNO,8)
+	..Set ^T2(XT,TNO,8,63595)=Line8
+	..Set ^T2(XT,TNO,8)=""
+	..Set TNA=^T2(XT,TNO,1)
+	..Write !!,TNO,"  ",TNA
+	..Write !,"OLD: "_Line8
+	..Write !,"NEW: "_^T2(XT,TNO,8)
+	..Read DUD
+	Quit
+	
+	
+	
+	
+TestBobbie ;
+
+	Set PNO="201412000001_IPL"
+    Write PNO,!
+    Set PNO=$P(PNO,"_",1)
+    Set XP=PNO#100
+    Write PNO_" and XP "_XP
+	q
+
+
+testphone
+	Set WorkPhone="15412150552"
+	Set WorkPhone=$$CheckPhoneNumber(WorkPhone)
+	Write !, WorkPhone
+	Quit
+	;
+	
+CheckPhoneNumber(PhoneNumber); Function to normalize the Phone number. Called by $$PhoneNumber("5412150552Liz")^IntegrateOrders
+	New (PhoneNumber)
+	Write !, PhoneNumber
+	If $Get(PhoneNumber)="" Quit PhoneNumber
+	Set PhoneNumber=$Extract($$DP^LIB0044(PhoneNumber),1,15) ; STRIP ALL PUNCTUATION OFF
+	If $Extract(PhoneNumber,1,1)="1" Set PhoneNumber=$E(PhoneNumber,2,11)
+	If $Extract(PhoneNumber,1,1)'="1" Set PhoneNumber=$E(PhoneNumber,1,10)
+	Quit PhoneNumber
+	;
+
+TESTExt;
+	Set PRLID=1043355
+	If $$ErrorLogCheck(PRLID) Quit
+	Quit
+
+ErrorLogCheck(PRLID); Check to see if there is anything on the error log for this PRLID
+	N (PRLID)
+	Set FLG=0
+	Set PGM="" For  Set PGM=$Order(^ERR("Dino","ZEN","LABCLA",PGM)) Quit:PGM=""  Do
+	.If PGM'["IntegratePRLToAccession" Quit
+	.If $Piece(PGM,":",2)=PRLID Set FLG=1
+	Quit FLG
+	;
+GetOrderInfo
+	Set ORNO="HM 2025" For  Set ORNO=$Order(^W("HL7ORDER","ORNO",ORNO)) Quit:ORNO=""  Do
+	.Set num=$Piece(ORNO," ",2)
+	.If ((num<2028)!(num>2097)) Quit
+	.Set DATA=^W("HL7ORDER","ORNO",ORNO,1)
+	.Set PatientID=$Piece(DATA,"|",3)
+	.Set OrderedTests=""
+	.Set TNO="" For  Set TNO=$Order(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO)) Quit:TNO=""  Do
+	..Set OrderedTests=OrderedTests_TNO_"*"
+	..Set TestData=^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,1)
+	..Set EMRID=$Piece(TestData,"|",5)
+	.;Write !!,ORNO,?10,EMRID,?25,OrderedTests,!,DATA
+	.;Write !,"Matched ORNO:"
+	.Set NewORNO=ORNO
+	.Do GetOtherOrder(PatientID,OrderedTests,EMRID,NewORNO)
+	q
+	;
+GetOtherOrder(PatientID,OrderedTests,EMRID,NewORNO)
+	N (PatientID,OrderedTests,EMRID,NewORNO)
+	If '$D(^W("HL7ORDER","INDEX","PID",PatientID)) Quit
+	Set ORNO="" For  Set ORNO=$Order(^W("HL7ORDER","INDEX","PID",PatientID,ORNO)) Quit:ORNO=""  Do
+	.Set DATA=^W("HL7ORDER","ORNO",ORNO,1)
+	.Set OldPatientID=$Piece(DATA,"|",3)
+	.Set OldOrderedTests=""
+	.Set TNO="" For  Set TNO=$Order(^W("HL7ORDER","ORNO",ORNO,"TNO",TNO)) Quit:TNO=""  Do
+	..Set OldOrderedTests=OldOrderedTests_TNO_"*"
+	..Set TestData=^W("HL7ORDER","ORNO",ORNO,"TNO",TNO,1)
+	..Set OldEMRID=$Piece(TestData,"|",5)
+	.If OldPatientID'=PatientID Quit
+	.If OldEMRID'=EMRID Quit
+	.If ORNO=NewORNO Quit
+	.If OldOrderedTests=OrderedTests Set MatchORNO=ORNO
+	.Write "'"_ORNO_"' OR StickerNum= "
+	.;Write !,?10,OrderedTests
+	Quit
+	;
+	
+	
+Get341 ; 
+	Set DNO="" For  Set DNO=$Order(^HL7("DNO",DNO)) Quit:DNO=""  Do
+	.Set Data=^HL7("DNO",DNO)
+	.If $Piece(Data,"_",1)'=366 Quit
+	.Set DNA=^DOC(DNO,1)
+	.Write !,DNO_"_"_DNA
+	Quit
+TESTSTAT ; TEST STAT INSTRUCTIONS
+	Write !,"Enter TNO: " Read TNO
+	Write !,"Enter DNO: " Read DNO
+	If (($D(^RLG("STAT",TNO,"ALL")))&('$D(^RLG("STAT",TNO,DNO)))) Write !,"CREATE INSTRUCTION",!!!
+	If (('$D(^RLG("STAT",TNO,"ALL")))&($D(^RLG("STAT",TNO,DNO)))) Write !,"CREATE INSTRUCTION",!!!
+	Set ExistingInstruction=$Get(aPRL(PRLID,"SPIN",1))
+	Set ClientCode=$P($P(aPRL(PRLID),"_",6),"#",1)
+	Set ClientCode=$P($P(aPRL(PRLID),"_",6),"#",2)
+	Set ContactNumber=$G(^DOC(ClientCode,5))
+	If ContactNumber="" Quit ;Quit if there is no call number.
+	Set Instruction="" ;This will initialy be null as the accessioners that I talked with did not put instructions.
+	Set aPRL(PRLID,"SPIN",1)=ExistingInstruction_$P(aPRL(PRLID),"_",14)_"#"_ClientName_"("_ClientCode_")_STAT_"_"CALL"_"_"_ContactNumber_"_"_Instruction_"^"
+	Kill ExistingInstruction ; Clean up ExistingInstruction
+	Quit
+	;
+FIXPRINT ; 
+	Write !,"Enter DNO: " Read DNO
+	If DNO="" Quit
+	Kill ^MRP(997,DNO)
+	Do FIXPRINT
+	Quit
+
+PREFCOLLECT ; Display Preferred Collection
+	D ^LIB0110("P")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If ^T2(XT,TNO,57)="N" Quit ;Not orderable
+	..If ^T2(XT,TNO,59)'="Y" Quit ;Not in the service manual
+	..Set PerCol=$Get(^T2(XT,TNO,200))
+	..Set TNA=$Extract(^T2(XT,TNO,1),1,30)
+	..;Write !!, TNO,?6,TNA,!
+	..s pr=$l($g(PerCol),"|")
+	..f i=1:1:pr s poid=$p(PerCol,"|",i) q:poid=""  d
+	...s PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...i PrefSpec=0 q
+ 	...s PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...Set DisplayContainer="No Container Specified"
+ 	...i PrefSpec.Container'="" s Container=##class(Supplies.Container).%OpenId(PrefSpec.Container)
+ 	...;i PrefSpec.Quantity'="" s q=PrefSpec.Quantity w $s(q="":"",q="1":"One",q="2":"Two",q="3":"Three",q="4":"Four",q="5":"Five",q="6":"Six",q="7":"Seven",q="8":"Eight",q="9":"Nine",q="10":"Ten",1:q)," "
+ 	...;i PrefSpec.SpecType'="" w PrefSpec.SpecType,"  "
+ 	...i $d(Container) Set DisplayContainer=Container.Volume_" "_Container.InterpathDescription
+ 	...d PrefSpec.%Close() ;Close PrefSpec instance
+ 	...i $d(Container) d Container.%Close() ;If container object has been opended close it
+ 	...Write !,TNO_$C(9)_TNA_$C(9)_PrefSpec.Quantity_$C(9)_PrefSpec.SpecType_$C(9)_DisplayContainer
+ 	...k PrefSpec,Container,q
+ 	D ^LIB0111
+ 	q
+	;
+GetProcedureCodes
+	Set PRLID=640471
+	Set aPRL=""
+	Set flgDebug=1
+	;--------------------------------------------------------
+	; 			Get Procedure Codes / Test Requests
+	;--------------------------------------------------------
+	;	
+	S sql="SELECT tblProcedure.Code ProcedureCode"
+	S sql=sql_",tblProcedure.Name ProcedureName"
+	S sql=sql_",tblCollection.CollectedBy "
+	S sql=sql_",tblCollection.CollectedDT "
+	S sql=sql_",tblWorkcenter.Code WorkcenterCode "
+	S sql=sql_"FROM LIS_SQL.tblPatientRegistration_Collection tblCollection "
+	S sql=sql_"LEFT OUTER JOIN LIS_SQL.tblProcedure tblProcedure ON tblProcedure.ID=tblCollection.ProcedureID "
+	S sql=sql_"LEFT OUTER JOIN LIS_SQL.tblWorkcenter tblWorkcenter ON tblWorkcenter.ID=tblCollection.WorkcenterID "
+	S sql=sql_"WHERE tblCollection.PatientRegistrationID="_PRLID
+	;
+	I flgDebug w !!!,sql,!!!
+	;
+	S rset=##class(%ResultSet).%New()
+	S sc=rset.Prepare(sql) I 'sc  Q
+	S sc=rset.Execute() I 'sc  Q
+	While rset.Next()
+		{
+		S ProcedureCode=rset.Data("ProcedureCode") S ProcedureCode=$TR(ProcedureCode," ","")
+		If ProcedureCode="" Quit ; This is a catch to make sure that we dont pass in null procedures.
+		S ProcedureName=rset.Data("ProcedureName")
+		S CollectedBy=rset.Data("CollectedBy")
+		;---------------------------------------------
+		; need to properly define LC
+		;S CollectedLC=rset.Data("CollectedLC")
+		S CollectedLC="NA"
+		;---------------------------------------------
+		S CollectedDT=rset.Data("CollectedDT")
+		Write !,"'",CollectedDT,"'"
+		S CollectedDate=$P($ZDTH(CollectedDT,3,2),",",1)
+		S CollectedTime=$P($ZDTH(CollectedDT,3,2),",",2)
+		S CollectedTime=$S(((CollectedTime>0)&(CollectedTime<86340)):CollectedTime,1:"N/G") ; if collected time fails validation - set it to "N/G"
+		S WCT=rset.Data("WorkcenterCode")
+		;
+		; Microbiology procedures store the 3 main AOEs (Source, Dx, and Antibiotics) on ^W slightly differently than clinical procedures
+		; Not sure where Sparc is storing the answers for the AOEs - will have to implement when we get code back from them.
+		S ClientCode=+$P(aPRL(PRLID),"_",6)
+		S (SRC,DX,ANT)=""
+		S TYP="LAB" I (ProcedureCode>3999)&(ProcedureCode<5000) S TYP="MIC" ;,SRC="SRC",DX="DX",ANT="ANT"
+		S ARY(1)=ClientCode,ARY(2)=ProcedureCode I $$RNO^EXT038(.ARY) S TYP="STANDALONE"
+		;
+		I CollectedBy["\" S CollectedBy=$P(CollectedBy,"\",2) ; if the collected by info comes back prefixed with windows domain, remove the domain name.  eg  "interpath\rmbyn"="rmbyn"
+		S $P(aPRL(PRLID),"_",2)=CollectedDate_"^"_CollectedTime
+		;S $P(aPRL(PRLID),"_",11)=CollectedBy_"*"_CollectedLC  ; this seems like a duplication of piece 14 but the current code is setting this data (AND LOG000 is using it in both) so I am doing the same for consistency
+		;S $P(aPRL(PRLID),"_",12)=CollectedDate
+		;S $P(aPRL(PRLID),"_",13)=CollectedTime
+		;S $P(aPRL(PRLID),"_",14)=CollectedLC
+		; define the various procedure specific info
+		S $P(aPRL(PRLID,TYP,ProcedureCode),"_",1)=ProcedureCode_"^"_WCT
+		S $P(aPRL(PRLID,TYP,ProcedureCode),"_",2)=ProcedureName
+		;S $P(ProcedureData,"_",3)=SRC
+		;S $P(ProcedureData,"_",4)=DX
+		;S $P(ProcedureData,"_",5)=ANT
+		;S aPRL(PRLID,TYP,ProcedureCode)=ProcedureData
+		}
+	
+	I flgDebug W !! ZW aPRL
+	Quit
+	;
+CheckTNC
+	KILL
+	Set DNO="" FOR  SET DNO=$ORDER(^FLG("TNC",DNO)) QUIT:DNO=""  DO
+	.;IF DNO'="ALL" QUIT
+	.SET TNO="" FOR  SET TNO=$ORDER(^FLG("TNC",DNO,TNO)) QUIT:TNO=""  DO
+	..SET CONVERTTO=^FLG("TNC",DNO,TNO)
+	..Set DNOSTRING=$Piece($Get(TEMP(TNO)),"|",2)
+	..Set DNOSTRING=DNOSTRING_DNO_"^"
+	..SET TEMP(TNO)=CONVERTTO_"|"_DNOSTRING
+	Write !,"<<< NON - Orderable Tests With Ordering Conviniance and AutoConversions >>>"
+	SET TNO="" FOR  SET TNO=$ORDER(TEMP(TNO)) QUIT:TNO=""  DO
+	.SET XT=TNO#100
+	.IF ^T2(XT,TNO,6)="" QUIT
+	.IF ^T2(XT,TNO,57)'="Y" QUIT
+	.Set CONVERTEDTO=$Piece(TEMP(TNO),"|",1)
+	.Set DNOS =$Piece(TEMP(TNO),"|",2)
+	.Write !,"AutoConversions for: "_DNOS
+	.WRITE !,"^T2  - ",TNO," CONVERTED TO: ",^T2(XT,TNO,6)
+	.WRITE !,"^FLG - ",TNO," CONVERTED TO: ",CONVERTEDTO
+	.WRITE !!
+	Write !,"<<< NON - Orderable Tests with AutoConversions >>>"
+	SET TNO="" FOR  SET TNO=$ORDER(TEMP(TNO)) QUIT:TNO=""  DO
+	.SET XT=TNO#100
+	.;IF ^T2(XT,TNO,6)="" QUIT
+	.IF ^T2(XT,TNO,57)='"Y" QUIT
+	.Set DNOS =$Piece(TEMP(TNO),"|",2)
+	.WRITE !,"Test Number = ",TNO," DNO's: "_DNOS
+	Quit
+	
+TESTAOE ;
+	;Set Variables 
+	Set TNO=1131
+	Set PRLID="TEST"
+	Set Instruction="1131 CHLAMYDIA APTIMA-Was a Genital Culture Ordered : other question"
+	Set aPRL(PRLID,"SPIN",4)="(1131)~Source=source^"
+	;Run Code
+	I ((TNO<4000)!(TNO>4999))  Do  Quit
+	.Set LegacyInstructionType=4 ; This is changed as AOE's for clinical are stored under .54
+	.Set ExistingInstruction=$Get(aPRL(PRLID,"SPIN",LegacyInstructionType))
+	.Set Question=$P($P(Instruction,"-",2)," :",1)
+	.Set Answer=$P($P(Instruction,"-",2)," :",2) If $Extract(Answer,1,1)=" " Set $Extract(Answer,1,1)=""
+	.If ExistingInstruction'=""  Do  Quit
+	..Set flgSET=0
+	..For I=1:1:$L(ExistingInstruction,"^") Set CheckAOE=$Piece(ExistingInstruction,"^",I)  Do
+	...;If $Piece(CheckAOE,"~",1)'="("_TNO_")" Quit ;Not an AOE for this test
+	...Set AOETNO=$Piece($Piece(CheckAOE,")",1),"(",2)
+	...If AOETNO'=TNO Quit
+	...Set AOECNT=$L(CheckAOE,"~")
+	...Set $Piece(CheckAOE,"~",AOECNT+1)=Question_"="_Answer Set flgSET=1
+	...Set $Piece(ExistingInstruction,"^",I)=CheckAOE
+	..If flgSET'=1 Set ExistingInstruction=ExistingInstruction_"("_TNO_")~"_Question_"="_Answer_"^"
+	..Set aPRL(PRLID,"SPIN",LegacyInstructionType)=ExistingInstruction
+	.If ExistingInstruction=""  Do  Quit
+	..Set aPRL(PRLID,"SPIN",LegacyInstructionType)="("_TNO_")~"_Question_"="_Answer_"^"
+	Quit
+	;
+AddedTestQuery
+	New
+	Set TotalAddedTests=0
+	Set TotalElapsedHours=0
+	Set AverageElapsedHours=0
+	;
+	Set sql="Select P.PNO AS Accession, DATEDIFF('Hour',P.AccessionedDT,IT.DateFiled) AS ElapsedHours,ITA.TestNumber AS ProcedureCode,ITA.TestName,IT.ClientNumber "
+	Set sql=sql_"From ITrack.cTicket AS IT "
+	Set sql=sql_"INNER JOIN LIS.cPatient AS P ON P.ID=IT.cPatientID "
+	Set sql=sql_"INNER JOIN ITrack.cAddedTest AS ITA ON IT.ID=ITA.Ticket "
+	Set sql=sql_"Where IT.ActionRequested = 'AddedTests' "
+	Set sql=sql_"AND IT.DateFiled > '2018-01-01 00:00:00' "
+	Set sql=sql_"AND IT.DateFiled < '2018-09-01 00:00:00' "
+	Set sql=sql_"AND IT.CSAgentNotes NOT LIKE '%PROBLEM%' "
+	Set sql=sql_"AND P.PNO > '201712000000' "
+	Set sql=sql_"AND P.FIL = 'LCF' "
+	Set rset=##class(%ResultSet).%New()
+	Set sc=rset.Prepare(sql) ;I 'sc Q -1 ; w !!,"sql Prepare() failed! ",sc,! 
+	Set sc=rset.Execute() ;I 'sc Q -2  ;w !!,"sql Execute() failed! ",sc,! Q -2
+	WHILE rset.Next() 
+		{
+			Set ElapsedHours=rset.Data("ElapsedHours")
+			Set ProcedureCode=rset.Data("ProcedureCode")
+			Set ClientNumber=rset.Data("ClientNumber")
+			If ElapsedHours < 200
+				{
+				Set HourCount=$Get(HourPostAccession(ElapsedHours))
+				Set HourCount=HourCount+1
+				Set HourPostAccession(ElapsedHours)=HourCount
+				;
+				Set TestHourCount=$Get(TestHourPostAccession(ElapsedHours,ProcedureCode))
+				Set TestHourCount=TestHourCount+1
+				Set TestHourPostAccession(ElapsedHours,ProcedureCode)=TestHourCount
+				;
+				Set ProcedureCount=$Get(Procedure(ProcedureCode))
+				Set ProcedureCount=ProcedureCount+1
+				Set Procedure(ProcedureCode)=ProcedureCount
+				;
+				Set ClientNumberCount=$Get(Client(ClientNumber))
+				Set ClientNumberCount=ClientNumberCount+1
+				Set Client(ClientNumber)=ClientNumberCount
+				;
+				Set LEV=$Order(^CacheTemp.AddedTests("LOG",""),-1)+1
+				Set ^CacheTemp.AddedTests("LOG",ElapsedHours,ProcedureCode,ClientNumber)=""
+				;
+				Set TotalAddedTests=TotalAddedTests+1
+				Set TotalElapsedHours=TotalElapsedHours+ElapsedHours
+				}
+		}
+	
+	ZW Client
+	Set AverageElapsedHours=TotalElapsedHours/TotalAddedTests
+	
+	Do ^LIB0110("P")
+	Write "Hour"_$C(9)_"Count"
+	Set Hour="" For  Set Hour=$Order(HourPostAccession(Hour)) Quit:Hour=""  Do
+	.Write !,Hour_$C(9)_HourPostAccession(Hour)
+	Do ^LIB0111
+	
+	Do ^LIB0110("P")
+	Write "ElapsedHours"_$C(9)_"ProcedureCode"_$C(9)_"Count"
+	Set ElapsedHours="" For  Set ElapsedHours=$Order(TestHourPostAccession(ElapsedHours)) Quit:ElapsedHours=""  Do
+	.Set ProcedureCode="" For  Set ProcedureCode=$Order(TestHourPostAccession(ElapsedHours,ProcedureCode)) Quit:ProcedureCode=""  Do
+	..Set XT=ProcedureCode#100
+	..Set ProcedureName=^T2(XT,ProcedureCode,1)
+	..Write !,ElapsedHours_$C(9)_ProcedureCode_$C(9)_ProcedureName_$C(9)_TestHourPostAccession(ElapsedHours,ProcedureCode)
+	Do ^LIB0111
+	
+	Do ^LIB0110("P")
+	Write "ProcedureCode"_$C(9)_"Count"
+	Set ProcedureCode="" For  Set ProcedureCode=$Order(Procedure(ProcedureCode)) Quit:ProcedureCode=""  Do
+	.Set XT=ProcedureCode#100
+	.Set ProcedureName=^T2(XT,ProcedureCode,1)
+	.Set ProcedureCount=Procedure(ProcedureCode)
+	.Write !,ProcedureCode_$C(9)_ProcedureName_$C(9)_ProcedureCount
+	Do ^LIB0111
+	
+	Do ^LIB0110("P")
+	Write "ClientNumber"_$C(9)_"ClientName"_$C(9)_"Count"
+	Set ClientNumber="" For  Set ClientNumber=$Order(Client(ClientNumber)) Quit:ClientNumber=""  Do
+	.Set ClientName=^DOC(ClientNumber,1)
+	.Set Count=Client(ClientNumber)
+	.Write !,ClientNumber_$C(9)_ClientName_$C(9)_Count
+	Do ^LIB0111
+	
+	Write !
+	Quit
+	
+	
+	
+NewAutomateStats
+	Kill ^CacheTemp.Automate("LOG")
+	Set StartDay=+$H-7
+	Set StartPNO=^PNO(StartDay)
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=StartPNO For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..Do ^ARYSUM
+	..Set OrderedDate=DO
+	..Set OrderedTime=TO
+	..Set CollectedDate=DC
+	..Set CollectedTime=TC
+	..Set ReceivedDate=DR
+	..Set ReceivedTime=TR
+	..Set TNO="" For  Set TNO=$Order(TST(TNO)) Quit:TNO=""  Do
+	...Set XT=TNO#100
+	...Set TestData=TST(TNO)
+	...Set TestName=$Piece(TestData,"*",1)
+	...Set OTNO=$Piece($Piece(TestData,"*",2),"#",1)
+	...Set OXT=OTNO#100
+	...Set OTNA=^T2(OXT,OTNO,1)
+	...Set Result=$Piece(TestData,"*",3)
+	...Set ResultTech=$Piece(TestData,"*",4)
+	...Set PerformedAtWCT=$Piece(TestData,"*",5)
+	...Set ResultedDT=$Piece(TestData,"*",6)
+	...If ResultedDT="" Quit ; dont report if not resulted
+	...Set %DT=$Piece(ResultedDT,",",1)
+	...Set %TM=$Piece(ResultedDT,",",2) 
+	...Do ^LIB0011
+	...Do ^LIB0013
+	...Set ResultedDate=%DAT4
+	...Set ResultedTime=%TIM
+	...Set Priority=TMG
+	...Set DIData=$Get(^PROC("DI","NW",PNO,TNO,1))
+	...Set SampleID=$Piece(DIData,"_",1)
+	...If $Get(SampleID)="" Set SampleID=PNO
+	...Set DepartmentCode=$Get(^T2(XT,TNO,45))
+	...Set LEV=$Order(^CacheTemp.Automate("LOG",""),-1)+1
+	...;Set ^CacheTemp.Automate("LOG",LEV)=OrderedDate_$C(9)_OrderedTime_$C(9)_CollectedDate_$C(9)_CollectedTime_$C(9)_OrderedDate_$C(9)_OrderedTime_$C(9)_ResultedDate_$C(9)_ResultedTime_$C(9)_PNO_$C(9)_SampleID_$C(9)_TNO_$C(9)_TestName_$C(9)_WCT_$C(9)_DepartmentCode_$C(9)_ResultTech_$C(9)_Priority
+	...Set ^CacheTemp.Automate("LOG",LEV)=PNO_$C(9)_OTNO_$C(9)_OTNA_$C(9)_TNO_$C(9)_TestName_$C(9)_DepartmentCode_$C(9)_PerformedAtWCT_$C(9)_ResultedDate_$C(9)_ResultedTime
+	;
+	;Quit
+	Do ^LIB0110("P")
+	Write "AccessionNumber"_$C(9)_"OrderedTestNumber"_$C(9)_"OrderedTestName"_$C(9)_"ComponentNumber"_$C(9)_"ComponentName"_$C(9)_"DepartmentCode"_$C(9)_"PerformedAtWCT"_$C(9)_"ResultedDate"_$C(9)_"ResultedTime"
+	;Write "OrderedDate"_$C(9)_"OrderedTime"_$C(9)_"CollectedDate"_$C(9)_"CollectedTime"_$C(9)_"ReceivedDate"_$C(9)_"ReceivedTime"_$C(9)_"ResultedDate"_$C(9)_"ResultedTime"_$C(9)_"PNO"_$C(9)_"SampleID"_$C(9)_"TNO"_$C(9)_"TestName"_$C(9)_"WCT"_$C(9)_"DepartmentCode"_$C(9)_"ResultTech"_$C(9)_"Priority"
+	Set LEV="" For  Set LEV=$Order(^CacheTemp.Automate("LOG",LEV)) Quit:LEV=""  Do
+	.Write !,^CacheTemp.Automate("LOG",LEV)
+	Do ^LIB0111
+	Quit
+

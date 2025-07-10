@@ -1,0 +1,65 @@
+ROUTINE BLDBNK02 [Type=INT]
+BLDBNK02 ; BLOOD BANKING ADDRESS LABELS
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;Interpath Laboratory, Inc.
+	;Purpose / Description: PROGRAM PRINT BLOOD BANKING ADDRESS LABELS
+	;Installed / Tested: CCROWDER 9/2011	
+	;Approved: R.Hedrick 9/2011
+	;All Applicable Users Trained: 9/2011
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;INPUT VARIABLES: n/a
+	;OUTPUT VARIABLES: n/a
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	;                    Modifications
+	;- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	; 
+	;
+	Q
+	;put this quit in 4/3/2012, program NOT called from the MENU system marked for deletion
+
+FLASH 
+ 	S $ZT="ERROR^BLDBNK02" K  S VAR(1)="BLOOD BANKING LABELS" D ^LIB0010
+	;
+START ;
+	NEW
+ACCESSIONLOOP
+	W !, "ENTER ACCESSION #: " R PRN I PRN="" G ACCESSIONPRINT
+	D PRNPNO^LIB0068
+	S XP=PNO#100
+	I '$D(^L(XP,PNO)) W !! W "Accession Number does not Exist" G ACCESSIONLOOP
+	S Array(PNO)="" 
+	G ACCESSIONLOOP
+ACCESSIONPRINT 
+     W !!,"Output Device ? > " R PRIN I PRIN="" Q
+     S TYP="B"
+     I PRIN["?" D HELP^LIB0110 G ACCESSIONPRINT^BLDBNK02
+     I PRIN'?.N W " No such device, Please Enter a number" G ACCESSIONPRINT
+     I PRIN="" W "  Enter ? for a list" G ACCESSIONPRINT
+     I PRIN="",TYP'="P" Q
+     I PRIN=0,TYP'="P" W "  Enter ? for a list" G ACCESSIONPRINT
+     S PNO="" F  S PNO=$Order(Array(PNO)) Q:PNO=""  D
+	.D ^ARYSUM
+	.S H0="NAME:"_PNA,H1="PID:"_$G(LOC),H2="DOC:"_$P(DOC,"#",1)_" "_$P(DOC,"#",2),H3="SEX:"_SX_" / "_"AGE:"_AG,H4="DOB:"_BDT,H5="REQ./RM#:"_HNO,H6="ACCESS#:"_PRN,H7="SSN: "_SSN
+	.D ^LIB0113(PRIN)
+	.U %TRM W *2,*27,"P",*3
+    .W *2,"E7;F7,BATCH;",*13
+    .W "H0,PNA;o2,44;f0;d0,40;c0;h1;w1;b1;r0;",*13
+    .W "H1,PNO;o2,57;f0;d0,30;c0;h1;w1;b0;r0;",*13
+    .W "H2,DOC;o2,70;f0;d0,40;c0;h1;w1;b0;r0;",*13
+    .W *3,*2,"N",*3,*2,"F7,BATCH;",*13
+    .W "H3,AGSX;o2,83;f0;d0,30;c0;h1;w1;b0;r0;",*13
+ 	.W "H4,BDT;o2,96;f0;d0,30;c0;h1;w1;b0;r0;",*13
+ 	.W "H5,HNO;o2,109;f0;d0,30;c0;h1;w1;b0;r0;",*13
+ 	.W "H6,PRN;o2,122;f0;d0,30;c0;h1;w1;b1;r0;",*13
+ 	.W "H7,SSN;o2,135;f0;d0,30;c0;h1;w1;b0;r0;",*13
+ 	.W *3,*2,"F7,BATCH;",*13
+ 	.W *2,"R",*3
+    .W *2,*27,"E7",*24,H0,*13,H1,*13,H2,*13,H3,*13,H4,*13,H5,*13,H6,*13,H7,*23,*3
+ 	.D ^LIB0111
+ 	.H .5
+   	Q
+    ;
+ERROR ; Interpath Error Trap
+ 	S ERR(1)="BLDBNK02",ERR(2)=$ZE,ERR(3)="" D ^LIB0016(.ERR)
+	Q

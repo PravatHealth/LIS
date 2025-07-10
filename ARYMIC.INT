@@ -1,0 +1,132 @@
+ROUTINE ARYMIC [Type=INT]
+ARYMIC ; PRINT BUILD ARRAY FOR MICRO REPORTS (ALL) [ 01/28/2003   8:08 AM ]
+ ; INTERPATH - RH
+ ; 8/2/93
+ ; INPUT VARIABLE PNO; OUTPUT ARE THOSE IN NEW STMT BELOW
+ ; INPUT VARIABLES - ARY,DOCHK,PNO
+ ; 5/21/2012 ADDED
+ ;
+START ;
+ 	S $ZT="ERROR^ARYMIC" 
+ 	K PAT,RSL 
+ 	N (AG,AGSX,BDT,COM,AMB,DC,DOB,DOC,DNA,DNAO,DNO,DO,DR,DSH,HNO,HRS,LOC,MS,ONO,PAT,PNA,PNO,PRN,R,REFLAB,REVIEW,RSL,RTYP,SPIN,SSN,SX,TC,TMG,TO,TR,VAR,TZ,%TZN,C1,P1,P2,EMROrderCodes,SecondaryIdentifier,TZReportedDate,TZReportedTime,TZOrderedDate,TZOrderedTime)
+ 	S FIL=$P(^LKN(PNO),"^",1) I FIL="MCF" G M
+ 	;
+MA 	I '$D(^MA(PNO)) D ^LIB0042 S ^ERR(NSPACE,"ARYMIC",+$H)="PNO "_PNO_" FIL not correct in ^LKN" G END
+ 	S L="" F  S L=$O(^MA(PNO,L)) Q:L=""  D
+ 	.I '$D(^FLG("NOPRNT",L)) S PAT(L)=^MA(PNO,L) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	.I $D(^FLG("NOPRNT",L)),$G(REVIEW)'="" S PAT(L)=^MA(PNO,L) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	.S LL="" F  S LL=$O(^MA(PNO,L,LL)) Q:LL=""  D
+ 	..I '$D(^FLG("NOPRNT",LL)) S PAT(L,LL)=^MA(PNO,L,LL) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	..I $D(^FLG("NOPRNT",LL)),$G(REVIEW)'="" S PAT(L,LL)=^MA(PNO,L,LL) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	..S LLL="" F  S LLL=$O(^MA(PNO,L,LL,LLL)) Q:LLL=""  D
+ 	...I '$D(^FLG("NOPRNT",LL)) S PAT(L,LL,LLL)=^MA(PNO,L,LL,LLL)  ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	...I $D(^FLG("NOPRNT",LL)) D
+ 	....I $G(REVIEW)'="" S PAT(L,LL,LLL)=^MA(PNO,L,LL,LLL)  ; Print "NOPRNT" tests ONLY on the micro review copieS
+ 	....I $P(^MA(PNO,L,LL,LLL),"$",1)="YES" S $P(PAT(L),"*",7)="A" ; Create an ABNORMAL flag for the parent cultutre if REVIEW INDICATED contains YES as the result
+ 	S DOC=PAT(.02),DNO=$Piece(DOC,"#",1),MS=$P(DOC,"#",6),TZ=$P(DOC,"#",7) D RPRT G ADEF
+ 	;
+M 	S XP=PNO#100 I '$D(^M(XP,PNO)) D ^LIB0042 S ^ERR(NSPACE,"ARYMIC",+$H)="PNO "_PNO_" FIL not correct in ^LKN" G END
+ 	S L="" F  S L=$O(^M(XP,PNO,L)) Q:L=""  D
+ 	.I '$D(^FLG("NOPRNT",L)) S PAT(L)=^M(XP,PNO,L) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	.I $D(^FLG("NOPRNT",L)),$G(REVIEW)'="" S PAT(L)=^M(XP,PNO,L) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	.S LL="" F  S LL=$O(^M(XP,PNO,L,LL)) Q:LL=""  D
+ 	..I '$D(^FLG("NOPRNT",LL)) S PAT(L,LL)=^M(XP,PNO,L,LL) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	..I $D(^FLG("NOPRNT",LL)),$G(REVIEW)'="" S PAT(L,LL)=^M(XP,PNO,L,LL) ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	..S LLL="" F  S LLL=$O(^M(XP,PNO,L,LL,LLL)) Q:LLL=""  D
+ 	...S DATA=^M(XP,PNO,L,LL,LLL) I LL=4090 D
+ 	....S ORG=$P(DATA,"$",1),SRI=$P(DATA,"$",2),INI=$P(SRI,"@",1),SE=$P(SRI,"@",2),IN=$P(SRI,"@",3),RE=$P(SRI,"@",4) F J="SE","IN","RE" D
+ 	.....F I=1:1 S S=$P(@J,"*",I) Q:S=""  D
+ 	......S SNO=$P(S,"_",1),SNA=^MICRO("SEN","DRUG",SNO),$P(S,"_",1)=SNA,$P(@J,"*",I)=S,DATA=ORG_"$"_INI_"@"_SE_"@"_IN_"@"_RE
+ 	...I '$D(^FLG("NOPRNT",LL)) S PAT(L,LL,LLL)=DATA  ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	...I $D(^FLG("NOPRNT",LL)) D
+ 	....I $G(REVIEW)'="" S PAT(L,LL,LLL)=DATA  ; Print "NOPRNT" tests ONLY on the micro review copies
+ 	....I $P(DATA,"$",1)="YES" S $P(PAT(L),"*",7)="A" ; Create an ABNORMAL flag for the parent cultutre if REVIEW INDICATED contains YES as the result
+	;  
+TRANS D RPRT S DOC=PAT(.02),DNO=$Piece(DOC,"#",1),MS=^DOC(DNO,7),TZ=^DOC(DNO,42) I '$D(^DUTL("TNA",DNO)) G ADEF
+ 	S L=999 F  S L=$O(PAT(L)) Q:L=""  D
+ 	.I $D(^DUTL("TNA",DNO,L)) S $P(PAT(L),"*",1)=^(L)
+ 	.S LL="" F  S LL=$O(PAT(L,LL)) Q:LL=""  D
+ 	..I $D(^DUTL("TNA",DNO,LL)) S $P(PAT(L,LL),"*",1)=^(LL)
+ 	;
+ADEF I $$^LIB0033(PNO)
+ 	S PNA=$E(PAT(.01),1,34)
+ 	S EMROrderCodes=$Get(PAT(.035))
+ 	S HNO=$E($P(PAT(.04),"^",1),1,20)
+ 	S SecondaryIdentifier=$Get(PAT(.15))
+ 	S SPIN=PAT(.05)
+ 	S AGSX=PAT(.06)
+ 	S AMB=$G(PAT(.1))
+ 	S LOC=PAT(.07)
+ 	S HRS="N/A"
+ 	S COL=PAT(.09)
+ 	S %DT=$P(COL,"^",1)
+ 	S %TM=$P(COL,"^",2) 
+ 	D ^LIB0011,^LIB0013 S DC=%DAT4,TC=$S(%TIM=0:"N/G",1:%TIM)
+ 	D ^LIB0020 S DT=$P(PAT(.5),"*",1),%DT=$P(DT,",",1),%TM=$P(DT,",",2) D ^LIB0011,^LIB0013 S DO=%DAT4,TO=$S(%TIM=0:"N/G",1:%TIM),$P(DSH,"-",80)=""
+ 	S %TM=%TOT D ^LIB0011 S TR=$S(%TIM=0:"N/G",1:%TIM),%DT=%TOD 
+ 	S:$D(PAT(.8)) %DT=$P(PAT(.8),",",1),%TM=$P(PAT(.8),",",2) D ^LIB0011,^LIB0013 S DR=%DAT4,TR=%TIM
+ 	S SSN=$$SSN^LIB0044($G(PAT(.11))),TMG=$G(PAT(.12)),ONO=$G(PAT(.13))
+ 	S AG=$P(AGSX,"*",1),SX=$P(AGSX,"*",2),DOB=$P(AGSX,"*",3),VAR(1)=AGSX,DUD=$$^EXT031(.VAR),AGSX=VAR(2),BDT=$P(AGSX," ",1)
+ 	S COM="" S:$D(PAT(.66)) COM=PAT(.66)
+ 	D DCVRT
+ 	D DTZONE
+ 	D RSL F VAR="AG","SX","DC","TC","HRS","DO","TO","LOC" I @VAR="" S @VAR="N/G"
+ 	I FIL="MCF" F I=1:1 S TNO=$P(PAT(.03),"*",I) Q:TNO=""  S XT=TNO#100,TNA=$P(^T2(XT,TNO,1),"[",1),R(TNO)=TNA I $D(^DUTL("TNA",DNO,TNO)) S R(TNO)=^(TNO)
+ 	S RTYP="PRELIMINARY" I $D(PAT(.8)) S RTYP="COMPLETED"
+ 	G END
+ 	;	
+RSL ;Get Reusults
+	K RSL S L=.99 F  S L=$O(PAT(L)) Q:L=""  S RSL(L)=PAT(L) D
+ 	.S LL="" F  S LL=$O(PAT(L,LL)) Q:LL=""  S CNA=$P(PAT(L,LL),"*",1),WCT=$P(PAT(L,LL),"*",3),RSL(L,LL)=CNA_"*"_WCT D
+ 	..S LLL="" F  S LLL=$O(PAT(L,LL,LLL)) Q:LLL=""  S RSL(L,LL,LLL)=PAT(L,LL,LLL)
+ 	Q
+ 	;
+DCVRT ; Get Client information from DOC 
+	N P S DUD=$$^LIB0023(DOC),DNA=P(.021),DNAO=P(.022)
+ 	Q
+ 	;
+DTZONE ; Set Timezone appropriate ReportedDT and CompletedDT
+	;
+	Set TZReportedDate=""
+	Set TZReportedTime=""
+	Set TZOrderedDate=""
+	Set TZOrderedTime=""
+	;
+	;Process Ordered Date and Time
+	Set DateTimeToConvert=$Piece($Get(PAT(.5)),"*",1)
+	Do ^LIB0020
+	Set %DT=%TOD 
+	Do ^LIB0013 
+	Set TZOrderedDate=%DAT4
+	Set %TM=%TOT
+	Do ^LIB0011
+	Set TZOrderedTime=%TIM
+	If %TM="N/G" S TZOrderedTime=%TM
+	;
+	;Process Current Reported Date and Time.  If not completed set as current time.  This only effects reports.
+	Set DateTimeToConvert=$Piece($Get(PAT(.8)),"*",1)
+	Do ^LIB0020
+	Set %DT=%TOD
+	Do ^LIB0013
+	Set TZReportedDate=%DAT4
+	Set %TM=%TOT
+	Do ^LIB0011
+	Set TZReportedTime=%TIM
+	If %TM="N/G" S TZReportedTime=%TM
+	Quit
+	;
+RPRT ;Get Dates for Completed and reported 
+	S (P1,P2,C1)="",DATA=$P($G(PAT(.7)),"*",1)
+ 	I DATA'="" S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S P1=%DAT4_"  "_%TIM2
+ 	S DATA=$P($G(PAT(.7)),"*",2) I DATA'="" S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S P2=%DAT4_" "_%TIM2
+ 	S DATA=$G(PAT(.8)) I DATA'="" S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S C1=%DAT4_" "_%TIM2
+ 	Q
+ 	;	
+END ; END OF ROUTINE
+ 	D ^LIB0130(PNO) ; Populate Performed at Laboratory array
+ 	Q
+ 	;
+ERROR 
+	D ^LIB0015("ARYMIC")
+	Q

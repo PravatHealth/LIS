@@ -1,0 +1,21 @@
+ROUTINE Bobbie3 [Type=INT]
+CUSTOMFIELDS
+	//DIR 289
+	//S sc=$$CustomFields("PD1","PD1 Value",Facility,"289",EMROrderCode)
+ 	//S sc=$$CustomFields("PV1","PV1 Value",EncounterNum,"289",EMROrderCode)
+ 	//Set sc=$$CustomFields("PV13","PV13 Value",PV13,"289",OBR(2))
+
+	
+	
+	New (VAR)
+	Set ChangedBy="%System"
+	Set ChangedDT=$ZDT($h,3,2)_":00"
+	Set Field=VAR(1)
+	Set FieldName=VAR(2)
+	Set FieldValue=VAR(3)
+	Set Directory=VAR(4)
+	Set EMROrderCode=VAR(5)
+	set ^CacheTemp.CustomOrderB(VAR(4),VAR(5),$h)="^"_VAR(1)_"^"_VAR(2)_"^"_VAR(3)_"^"_ChangedBy_"^"_ChangedDT
+	Quit
+	
+

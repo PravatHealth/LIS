@@ -1,0 +1,212 @@
+ROUTINE AliquotLabelTools [Type=INT]
+AliquotLabelTools
+
+FLASH ; 
+	;Set Debug Flag
+	Set flgDebug=0
+	;
+	;Set Error Trap
+	Set $ZT="ERROR^AliquotLabelTools"
+	;
+	;Do EXPORT^AliquotLabelTools
+EXPORT ; EXPORT Labels
+	Set $ZT="ERROR^AliquotLabelTools"
+	Do ^LIB0110("P")
+	Write !,"ProcedureCode"_$C(9)_"WCT"_$C(9)_"LabelOrder"_$C(9)_"flgCombineBarcodes"_$C(9)_"CTubeCount"_$C(9)_"Name"_$C(9)_"Volume"_$C(9)_"SpecimenTypeCode"_$C(9)_"SpecimenStorageCode"_$C(9)_"SpecimenHandlingCode"_$C(9)_"BarcodeWorkBayCode"_$C(9)_"ResultsWorkBayCode"
+	Set ProcedureCode="" For  Set ProcedureCode=$Order(^PROC("LBL",ProcedureCode)) Quit:ProcedureCode=""  Do
+	.Set Data=$Get(^PROC("LBL",ProcedureCode))
+	.If Data'=""  Do
+	..;Example: 0*Y_UCTUBE_5_URINE_RN_CTUBE^Y_U-CA_1_URINE_RNh_WK 68*WK 68
+	..Set WCT="ALL"
+	..For I=1:1:$Length(Data,"^") Set BC=$Piece(Data,"^",I) Quit:BC=""  Do
+	...;Initialize Variables
+	...Kill (Active,ProcedureCode,WCT,Data,I,WorkCenterID,BC,flgDebug,aWCT)
+	...Set LabelOrder=I
+	...If $Piece(BC,"_",1)'["*" Set $Piece(BC,"_",1)="0*"_$Piece(BC,"_",1)
+	...Set flgCombineBarcodes=$Piece($Piece(BC,"_",1),"*",2)
+	...Set flgCombineBarcodes=$Select(flgCombineBarcodes="Y":1,flgCombineBarcodes="N":0,1:0)
+	...Set CTubeCount=$Piece($Piece(BC,"_",1),"*",1)
+	...Set Name=$Piece(BC,"_",2)
+	...Set Volume=$Piece(BC,"_",3)
+	...Set SpecimenTypeCode=$Piece(BC,"_",4)
+	...Set SpecimenStorageCode=$Extract($Piece(BC,"_",5),1,2)
+	...Set SpecimenHandlingCode=$Extract($Piece(BC,"_",5),3,3)
+	...Set BarcodeWorkBayCode=$Piece($Piece(BC,"_",6),"*",1)
+	...Set ResultsWorkBayCode=$Piece($Piece(BC,"_",6),"*",2)
+	...Write !,ProcedureCode_$C(9)_WCT_$C(9)_LabelOrder_$C(9)_flgCombineBarcodes_$C(9)_CTubeCount_$C(9)_Name_$C(9)_Volume_$C(9)_SpecimenTypeCode_$C(9)_SpecimenStorageCode_$C(9)_SpecimenHandlingCode_$C(9)_BarcodeWorkBayCode_$C(9)_ResultsWorkBayCode
+	.;
+	.;Work Center Specific 
+	.Set WCT="" For  Set WCT=$Order(^PROC("LBL",ProcedureCode,WCT)) Quit:WCT=""  Do
+	..Set Data=^PROC("LBL",ProcedureCode,WCT)
+	..For I=1:1:$Length(Data,"^") Set BC=$Piece(Data,"^",I) Quit:BC=""  Do
+	...;Initialize Variables
+	...Kill (Active,ProcedureCode,WCT,Data,I,WorkCenterID,BC,flgDebug,aWCT)
+	...Set LabelOrder=I
+	...If $Piece(BC,"_",1)'["*" Set $Piece(BC,"_",1)="0*"_$Piece(BC,"_",1)
+	...Set flgCombineBarcodes=$Piece($Piece(BC,"_",1),"*",2)
+	...Set flgCombineBarcodes=$Select(flgCombineBarcodes="Y":1,flgCombineBarcodes="N":0,1:0)
+	...Set CTubeCount=$Piece($Piece(BC,"_",1),"*",1)
+	...Set Name=$Piece(BC,"_",2)
+	...Set Volume=$Piece(BC,"_",3)
+	...Set SpecimenTypeCode=$Piece(BC,"_",4)
+	...Set SpecimenStorageCode=$Extract($Piece(BC,"_",5),1,2)
+	...Set SpecimenHandlingCode=$Extract($Piece(BC,"_",5),3,3)
+	...Set BarcodeWorkBayCode=$Piece($Piece(BC,"_",6),"*",1)
+	...Set ResultsWorkBayCode=$Piece($Piece(BC,"_",6),"*",2)
+	...Write !,ProcedureCode_$C(9)_WCT_$C(9)_LabelOrder_$C(9)_flgCombineBarcodes_$C(9)_CTubeCount_$C(9)_Name_$C(9)_Volume_$C(9)_SpecimenTypeCode_$C(9)_SpecimenStorageCode_$C(9)_SpecimenHandlingCode_$C(9)_BarcodeWorkBayCode_$C(9)_ResultsWorkBayCode
+	;
+	D ^LIB0111
+	Quit
+	
+IMPORT ; IMPORT Lables
+	;d IMPORT^AliquotLabelTools
+	Set $ZT="ERROR^AliquotLabelTools"
+	Kill ; Clean up all variables in this sub
+	Kill ^CacheTemp.PROC("TEMP")
+	Kill ^CacheTemp.PROC("LBL")
+	Set FILE="S:\Temp\AliquotBarcodeUpdate_04092017.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do
+ 	.Set flgDelete=$Piece(DATA,$C(9),13)
+ 	.Set ProcedureCode=$Piece(DATA,$C(9),1)
+ 	.Set WCT=$Piece(DATA,$C(9),2)
+ 	.Set LBLCount=$Piece(DATA,$C(9),3)
+ 	.Set LBLDATA=$Piece(DATA,$C(9),4)_"_"_$Piece(DATA,$C(9),5)_"_"_$Piece(DATA,$C(9),6)_"_"_$Piece(DATA,$C(9),7)_"_"_$Piece(DATA,$C(9),8)_"_"_$Piece(DATA,$C(9),9)_"_"_$Piece(DATA,$C(9),10)_"_"_$Piece(DATA,$C(9),11)_"_"_$Piece(DATA,$C(9),12)
+ 	.;Use $P Write !,ProcedureCode,?9,WCT,?15,LBLDATA
+ 	.Set ^CacheTemp.PROC("TEMP",ProcedureCode,WCT,LBLCount)=LBLDATA
+ 	.If flgDelete Set ^CacheTemp.PROC("DELETE",ProcedureCode,WCT)=""
+ 	Close FILE
+ 	;Kill
+ 	Set ProcedureCode="" For  Set ProcedureCode=$Order(^CacheTemp.PROC("TEMP",ProcedureCode)) Quit:ProcedureCode=""  Do
+ 	.;Use $P Write !,ProcedureCode Read DUD
+ 	.Set WCT="" For  Set WCT=$Order(^CacheTemp.PROC("TEMP",ProcedureCode,WCT)) Quit:WCT=""  Do
+ 	..If $D(^CacheTemp.PROC("DELETE",ProcedureCode,WCT)) Quit ; Dont Build
+ 	..;Process Barcodes for all WCT
+ 	..If WCT="ALL"  Do  Quit
+ 	...Set NewLabels="" ; This is a string of labels
+ 	...Set LabelCount="" For  Set LabelCount=$Order(^CacheTemp.PROC("TEMP",ProcedureCode,WCT,LabelCount)) Quit:LabelCount=""  Do
+ 	....Set NewLabel=""
+ 	....Set LabelData=^CacheTemp.PROC("TEMP",ProcedureCode,WCT,LabelCount)
+ 	....Set flgCombineBarcodes=$Piece(LabelData,"_",1)
+	....Set flgCombineBarcodes=$Select(flgCombineBarcodes=1:"Y",flgCombineBarcodes=0:"N")
+	....Set CTubeCount=$Piece(LabelData,"_",2)
+	....Set Name=$Piece(LabelData,"_",3)
+	....Set Volume=$Piece(LabelData,"_",4)
+	....Set SpecimenTypeCode=$Piece(LabelData,"_",5)
+	....Set SpecimenStorageCode=$Piece(LabelData,"_",6)
+	....Set SpecimenHandlingCode=$Piece(LabelData,"_",7)
+	....Set BarcodeWorkBayCode=$Piece(LabelData,"_",8)
+	....Set ResultsWorkBayCode=$Piece(LabelData,"_",9)
+	....Set NewLabel=CTubeCount_"*"_flgCombineBarcodes_"_"_Name_"_"_Volume_"_"_SpecimenTypeCode_"_"_SpecimenStorageCode_SpecimenHandlingCode_"_"_BarcodeWorkBayCode
+	....If LabelCount>1 Set NewLabel=flgCombineBarcodes_"_"_Name_"_"_Volume_"_"_SpecimenTypeCode_"_"_SpecimenStorageCode_SpecimenHandlingCode_"_"_BarcodeWorkBayCode
+	....Set $Piece(NewLabels,"^",LabelCount)=NewLabel
+	...If '$D(^PROC("LBL",ProcedureCode)) Set ^CacheTemp.PROC("LBL",ProcedureCode)=NewLabels_"*"_ResultsWorkBayCode
+	...If '$D(^PROC("LBL",ProcedureCode)) Set ^PROC("LBL",ProcedureCode)=NewLabels_"*"_ResultsWorkBayCode Write !,ProcedureCode
+ 	..;Process Barcodes for WCT Specific labels
+ 	..Set NewLabels="" ; This is a string of labels
+ 	..Set LabelCount="" For  Set LabelCount=$Order(^CacheTemp.PROC("TEMP",ProcedureCode,WCT,LabelCount)) Quit:LabelCount=""  Do
+ 	...Set NewLabel=""
+ 	...Set LabelData=^CacheTemp.PROC("TEMP",ProcedureCode,WCT,LabelCount)
+ 	...Set flgCombineBarcodes=$Piece(LabelData,"_",1)
+	...Set flgCombineBarcodes=$Select(flgCombineBarcodes=1:"Y",flgCombineBarcodes=0:"N")
+	...Set CTubeCount=$Piece(LabelData,"_",2)
+	...Set Name=$Piece(LabelData,"_",3)
+	...Set Volume=$Piece(LabelData,"_",4)
+	...Set SpecimenTypeCode=$Piece(LabelData,"_",5)
+	...Set SpecimenStorageCode=$Piece(LabelData,"_",6)
+	...Set SpecimenHandlingCode=$Piece(LabelData,"_",7)
+	...Set BarcodeWorkBayCode=$Piece(LabelData,"_",8)
+	...Set ResultsWorkBayCode=$Piece(LabelData,"_",9)
+	...Set NewLabel=CTubeCount_"*"_flgCombineBarcodes_"_"_Name_"_"_Volume_"_"_SpecimenTypeCode_"_"_SpecimenStorageCode_SpecimenHandlingCode_"_"_BarcodeWorkBayCode
+	...If LabelCount>1 Set NewLabel=flgCombineBarcodes_"_"_Name_"_"_Volume_"_"_SpecimenTypeCode_"_"_SpecimenStorageCode_SpecimenHandlingCode_"_"_BarcodeWorkBayCode
+	...Set $Piece(NewLabels,"^",LabelCount)=NewLabel
+	..If '$D(^PROC("LBL",ProcedureCode,WCT)) Set ^CacheTemp.PROC("LBL",ProcedureCode,WCT)=NewLabels_"*"_ResultsWorkBayCode
+	..If '$D(^PROC("LBL",ProcedureCode,WCT)) Set ^PROC("LBL",ProcedureCode,WCT)=NewLabels_"*"_ResultsWorkBayCode Write !,ProcedureCode
+	Quit
+	;
+ImportWorkBay
+	;Clean up work spaces
+	Kill ^CacheTemp.PROC("BAY")
+	;Get All WCT's
+	Merge aWCT("WCT")=^SYSTEM("WCT")
+	;Import New Workbays for all WCT's
+	Set FILE="S:\Temp\WorkBayUpdate_12042019.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do
+ 	.Set WorkBayCode=$Piece(DATA,$C(9),1)
+ 	.Set aWB(WorkBayCode)=""
+ 	Close FILE
+ 	;Set temp workbay for all sites
+ 	Set WCT="" For  Set WCT=$Order(aWCT("WCT",WCT)) Quit:WCT=""  Do
+ 	.Set WorkBayCode="" For  Set WorkBayCode=$Order(aWB(WorkBayCode)) Quit:WorkBayCode=""  Do
+ 	..Set ^PROC("BAY",WCT,WorkBayCode)=WorkBayCode
+	;Lock down the WORKBAY Program
+	Quit
+	;
+ERROR ; 
+	W !!,$ZE
+	;ZN "LIBRARY"
+	;D ^LIB0015("IntegrateWorkBay")
+	Quit
+	
+SaveAll ; Save all relevent globals
+	;
+	Write !,"Are you Sure? " Read DUD
+	If DUD'="YES" Quit
+	Merge ^PROCLBLEXPORT("LBL")=^PROC("LBL")
+	Merge ^PROCBAYEXPORT("BAY")=^PROC("BAY")
+	Quit
+	;
+CompareLabel ; 
+	Set ProcedureCode="" For  Set ProcedureCode=$Order(^PROC("LBL",ProcedureCode)) Quit:ProcedureCode=""  Do
+	.Set Data=$Get(^PROC("LBL",ProcedureCode))
+	.If Data'=""  Do
+	..Set WCT="ALL"
+	..Set NewData=$Get(^CacheTemp.PROC("LBL",ProcedureCode))
+	..Write !!,ProcedureCode,?8,WCT
+	..Write !,"OLD = "_Data
+	..Write !,"NEW = "_NewData
+	..Read DUD
+	.If Data=""  Do
+	..Set WCT="" For  Set WCT=$Order(^PROC("LBL",ProcedureCode,WCT)) Quit:WCT=""  Do
+	...Set Data=^PROC("LBL",ProcedureCode,WCT)
+	...Set NewData=$Get(^CacheTemp.PROC("LBL",ProcedureCode,WCT))
+	...Write !!,ProcedureCode,?8,WCT
+	...Write !,"OLD = "_Data
+	...Write !,"NEW = "_NewData
+	Quit
+	;
+DeleteOld ; Delete old flged entries
+	Set ProcedureCode="" For  Set ProcedureCode=$Order(^CacheTemp.PROC("DELETE",ProcedureCode)) Quit:ProcedureCode=""  Do
+	.Set WCT="" For  Set WCT=$Order(^CacheTemp.PROC("DELETE",ProcedureCode,WCT)) Quit:WCT=""  Do
+	..If WCT="ALL" Kill ^PROC("LBL",ProcedureCode) Write !,"Killed ProcedureCode "_ProcedureCode_" For "_WCT Read DUD
+	..If WCT'="ALL" Kill ^PROC("LBL",ProcedureCode,WCT) Write !,"Killed ProcedureCode "_ProcedureCode_" For "_WCT Read DUD
+	Quit
+	;
+NoPrintBarcodes ; ^PROCLBLEXPORT("LBL",3690,"AA")
+	;d NoPrintBarcodes^AliquotLabelTools
+	Set $ZT="ERROR^AliquotLabelTools"
+	Kill ; Clean up all variables in this sub
+	Set FILE="S:\Temp\UpdateNoPrintBarcodes.txt"
+ 	Open FILE
+ 	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do
+ 	.Set ProcedureCode=$Piece(DATA,$C(9),1)
+	.Set Data=$Get(^PROCLBLEXPORT("LBL",ProcedureCode))
+	.If Data'=""  Do  Quit
+	..Set WCT="ALL"
+	..Set ^CacheTemp.PROC("NoPrint",ProcedureCode,WCT)=Data
+	.Set WCT="" For  Set WCT=$Order(^PROCLBLEXPORT("LBL",ProcedureCode,WCT)) Quit:WCT=""  Do
+	..Set Data=^PROCLBLEXPORT("LBL",ProcedureCode,WCT)
+	..Set ^CacheTemp.PROC("NoPrint",ProcedureCode,WCT)=Data
+	..Set ^PROC("LBL",ProcedureCode,WCT)=Data
+ 	Close FILE
+ 	;
+	Quit
+	
+	
+	
+	
+UPDATEITEMS
+	Merge ^PROC("LBL",3397,"DP")=^PROC("LBL",3397,"CA")
+ 	Merge ^PROC("LBL",3397,"DV")=^PROC("LBL",3397,"CA")
+ 	Quit

@@ -1,0 +1,276 @@
+ROUTINE Bobbie [Type=INT]
+CLEAN
+	Set Type="" F  Set Type=$O(^PROC("DI",Type)) Quit:Type=""  Do
+	.Set PNO="" F  Set PNO=$O(^PROC("DI",Type,PNO)) Quit:PNO=""  Do
+	..Set TNO="" F  Set TNO=$O(^PROC("DI",Type,PNO,TNO)) Quit:TNO=""  Do
+	...Set LEV="" F  Set LEV=$O(^PROC("DI",Type,PNO,TNO,LEV)) Quit:LEV=""  Do
+	....Set XP=PNO#100
+	....If $D(^L(XP,PNO,TNO)) Do
+	.....Set ACC=^L(XP,PNO,TNO)
+	.....If $P(ACC,"*",3)'="" If $P(ACC,"*",6)  Do
+	......Set DT=$P(ACC,"*",6)
+	......Set $P(^PROC("DI",Type,PNO,TNO,LEV),"_",5)=DT
+	....If '$D(^L(XP,PNO,TNO)) K ^PROC("DI",Type,PNO,TNO,LEV)
+	....If $D(^M(XP,PNO)) Do
+	.....If $D(^M(XP,PNO,.8))  Do
+	......Set DT=^M(XP,PNO,.8)
+	......Set $P(^PROC("DI",Type,PNO,TNO,LEV),"_",5)=DT
+	....If '$D(^M(XP,PNO)) K ^PROC("DI",Type,PNO,TNO,LEV)	
+	Quit
+TST ;Define List of tests in R Array
+	M PAT=^L(56,201806061356)
+	S LEV=.99 F  S LEV=$O(PAT(LEV)) Q:LEV=""  D
+ 	.I $D(^FLG("NOPRNT",LEV)) S DATA=PAT(LEV),R=$P(DATA,"*",3) I R=""!(R?." ")!(R=0)!(R="0.0")!(R="POSITIVE")!(R="NEGATIVE") Q
+ 	.S TST(LEV)=PAT(LEV)
+
+CHKRSL ;check if result is present in Patient File for a particular test.
+	SET PNO=201610056425,TNO=3302
+	Set XP=PNO#100
+	Set RSLFLG=0
+	Set LEV=999 For  Set LEV=$Order(^L(XP,PNO,LEV)) Quit:LEV=""  Do
+	.Set RSLData=^L(XP,PNO,LEV)
+	.If $P(RSLData,"*",2)=TNO  Do
+	..Set RSL=$P(RSLData,"*",3)
+	..If $Get(RSL)'="" Set RSLFLG=1 Quit
+	Write RSLFLG
+	
+	
+RSL
+	S RSL=28
+	I $E(RSL,1)="<"!($E(RSL,1)=">") D  Q
+	.S RSL=$E(RSL,2,$L(RSL))
+	.W "1-"_RSL
+	.S RSL=28
+	.S RSL=$E(RSL,2,$L(RSL))
+	.W "2-"_RSL
+	Q
+CRITVALU
+	Set DNO=4647
+	Set TNO=1025
+	Set RSL=28
+	S CurrentCRV=$$GetCRVFlag^SUB034(DNO,TNO,RSL)
+	W CurrentCRV
+	Q
+	
+LOCATION
+	Set Data=^SYSTEM("LC","NA")
+	Set GPRevenueLocation=$Translate($Piece(Data,"_",9),"^","_")
+	Write GPRevenueLocation
+	Quit
+TCMT	; Build test specific comment here
+	S PNO="201610016655"
+	D ^ARYSUM
+	S CNO="90005"
+	S NTE1=0
+	I '$D(CMT("T",CNO)) Q
+	S LEV="" F  S LEV=$O(CMT("T",CNO,LEV)) Q:LEV=""  D
+	.S VAR(3)=CMT("T",CNO,LEV)
+	.K S S VAR(1)=1,VAR(2)=79,SC=$$^LIB0036(.VAR) ; Build S(Array of 78 character strings)
+	.S NXT="" F  S NXT=$O(S(NXT)) Q:NXT=""  D
+	..S NTE3=S(NXT),NTE1=NTE1+1
+	..S NTE3=$$STRIP^LIB0044(NTE3) ; Strip out invalid characters that cause issues in HL7 reporting
+	..Set ^CacheTemp.Bobbie(LEV)=S(NXT)
+	..;D NTlab^HL7501 ; Custom Code
+	..;D NT^HL7500 ; Build NTE Segment
+	Q
+SCOL
+	Set OBR16=20161011113111
+	Set %DT=$E(OBR16,1,8) D ^LIB0014
+	Set OBR16Day=%DAT
+	Set Received=$h
+	Set ReceivedDay=$P(Received,",",1)
+	If ReceivedDay>OBR16Day Set OBR16="Nothing"
+	Write OBR16
+	Quit
+HL7
+	Set PNO="" For  Set PNO=$O(^HL7("REQUEST",PNO)) Q:PNO=""  Do
+	.If PNO<201609000001 Quit
+	.Set TNO="" For  Set TNO=$O(^HL7("REQUEST",PNO,TNO)) Q:TNO=""  Do
+	..If TNO'=4020 Quit
+	..Set Data=^HL7("REQUEST",PNO,TNO)
+	..Set Day=$P(Data,",",1)
+	..Set Time=$P(Data,",",2)
+	..If Day<64198 Quit
+	..If Time<43200 Quit
+	..Write "PNO= "_PNO_" "_"DateStamp= "_Data ,!
+	Quit
+TEST1
+	Set PNO="" For  Set PNO=$O(^MO(PNO)) Q:PNO=""  Do
+	.If PNO<201608062077 Quit
+	.Set DT="" For  Set DT=$O(^MO(PNO,DT)) Q:DT=""  Do
+	..Set Job="" For  Set Job=$O(^MO(PNO,DT,Job)) Q:Job=""  Do
+	...If Job'["HC1" Q
+	...Set MO=^MO(PNO,DT,Job)
+	...Write PNO_MO,!
+	Quit
+
+TEST2
+	Set VAR1=5, VAR2=6, VAR3=7, VAR4=8
+	Quit
+
+
+AUTOCONVER
+	Set DNO="" For  Set DNO=$O(^FLG("TNC",DNO)) Quit:DNO=""  Do
+	.Set TNO="" For  Set TNO=$O(^FLG("TNC",DNO,TNO)) Quit:TNO=""  Do
+	..Set CTNO=^FLG("TNC",DNO,TNO)
+	..If TNO=3500  Do
+	...If CTNO=3511  Do
+	....Write TNO_" AutoConverts to "_CTNO_" for Client: "_DNO,!
+	Quit
+
+
+Check
+	Set Day="" For  Set Day=$Order(^RDR(Day)) Quit:Day=""  Do
+	.Set DNO="" For  Set DNO=$Order(^RDR(Day,DNO)) Quit:DNO=""  Do
+	..Set PNO="" For  Set PNO=$Order(^RDR(Day,DNO,PNO)) Quit:PNO=""  Do
+	...If PNO<201608062077 Quit
+	...Set XP=PNO#100
+	...If $D(^L(XP,PNO)) Set Data=$P(^L(XP,PNO,.02),"#",1)
+	...If $D(^M(XP,PNO)) Set Data=$P(^M(XP,PNO,.02),"#",1)
+	...If Data'=DNO Write DNO_"*"_PNO_"*"_Data_"*"_Day ,! ; K ^RDR(Day,DNO,PNO) Set ^RDR(Day,Data,PNO)="" Read DUD
+	
+	Quit
+	;
+Printers
+	D ^LIB0110("P")
+	Set Printer=""
+	For I=1:1 Set Printer=$O(^SYSTEM("DEVICE","PRINTERS",Printer)) Quit:Printer=""  DO
+	.Set Data=$G(^SYSTEM("DEVICE","PRINTERS",Printer))
+	.Set IPAddress=$P(Data,"_",1)
+	.Set Location=$P(Data,"_",8)
+	.Set Location=$G(^SYSTEM("LC",Location))
+	.Set LocNeum=$P(Location,"_",5)
+	.Set Location=$P(Location,"_",1)
+	.Set Description=$P(Data,"_",4)
+	.Set Type=$P(Data,"_",5)_" _ "_$P(Data,"_",7)
+	.Write IPAddress_"^"_LocNeum_"^"_Location_"^"_Printer_"^"_Description_"^"_Type,!
+	D ^LIB0111
+	Quit
+	
+TEST
+	Set CN=$O(^M(XP,PNO,TNO,CNO,""),-1)
+	Write CN
+	
+	
+TESTDNOTRANSLATION
+	Set RDNO=""
+	Set TBL="99FMRI"
+	Set VAR="BobbieMcGill"
+	Set VAR=$ZCONVERT(VAR,"U")
+	Set Trans="" For  Set Trans=$Order(^HL7("DNO","XLT",TBL,"IN",Trans)) Quit:Trans=""  Do
+	.S TransRDNO=$ZCONVERT(Trans,"U")
+	.If VAR=TransRDNO S RDNO=$P($G(^HL7("DNO","XLT",TBL,"IN",Trans)),"_",1) Quit
+	Write RDNO
+	Quit
+	
+COMMENTS
+	Set PNO="201605034293"
+	Set CommentString="THIS IS SECOND COMMENT^THIS IS 4TH COMMENT^THIS IS 5"
+	Set NWCMT="" For I=1:1 Set NWCMT=$P(CommentString,"^",I) Quit:NWCMT=""  Do
+	.Set CMTFLG=1
+	.Set XP=PNO#100
+	.If $D(^M(XP,PNO,.66))  Do 
+	..Set ECOMMENT="" For Lev=1:1  Set ECOMMENT=$P(^M(XP,PNO,.66),"_",Lev) Quit:ECOMMENT=""  Do
+	...If ECOMMENT=NWCMT Set CMTFLG=0 Quit
+	..If CMTFLG=1 Set ^M(XP,PNO,.66)=^M(XP,PNO,.66)_"_"_NWCMT Quit
+	.If '$D(^M(XP,PNO,.66))  Do
+	..Set ^M(XP,PNO,.66)=NWCMT Quit
+	Quit
+	
+	
+TESTLOOP
+	Set Org="Day 4"
+	Set FLGORG=0
+	If $D(^CacheTemp.Bobbie("TESTLOOP"))  Do
+	.Set ExtRst="" For  Set ExtRst=$O(^CacheTemp.Bobbie("TESTLOOP",ExtRst))  Quit:ExtRst=""  Do
+	..Set ExtOrg=$P(^CacheTemp.Bobbie("TESTLOOP",ExtRst),"_",1)
+	..If ExtOrg=Org  Set FLGORG=1 Quit
+	.Set CN=$O(^CacheTemp.Bobbie("TESTLOOP",""),-1) 
+	.Set CN=CN+1
+	.If FLGORG=0 Set ^CacheTemp.Bobbie("TESTLOOP",CN)=Org_"This is a note" Quit
+	Quit
+	
+COUNTPNOBYCLIENT ;Count the number of accessions by client for a range of accession numbers
+	Set CNT=0
+	Set SPNO="201407000000"
+	Set EPNO="201506070018"
+	Set XP="" For  Set XP=$Order(^M(XP)) Quit:XP=""  Do
+	.Set PNO=SPNO For  Set PNO=$Order(^M(XP,PNO)) Quit:PNO=""  Do
+	..If PNO>EPNO Quit
+	..;Write "PNO="_PNO,!
+	..Set DNO=$P(^M(XP,PNO,.02),"#",1)
+	..If DNO="9001" Set CNT=CNT+1
+	..;Write "CNT="_CNT,!
+	Set XP="" For  Set XP=$Order(^L(XP)) Quit:XP=""  Do
+	.Set PNO=SPNO For  Set PNO=$Order(^L(XP,PNO)) Quit:PNO=""  Do
+	..If PNO>EPNO Quit
+	..;Write "PNO="_PNO,!
+	..Set DNO=$P(^L(XP,PNO,.02),"#",1)
+	..If DNO="9001" Set CNT=CNT+1
+	Write "CNT="_CNT,!
+	Quit
+	
+EMAILTEST
+	
+	Set PNO=201605059894
+	Set DrugComment1=Drug_"This drug is not built in LIS"
+	Set DrugComment2=PNO_"This is the accession that has the drug that is not built in LIS."
+	Set ToAddress="bmcgill@adaugeohealthcare.com"
+	Set FromAddress="CacheServer@interpathlab.com"
+	Set Subject="This is a test email from Cache"
+	Set Attachment=""
+	Set emailPriority=3
+	Set Body=DrugComment1
+	Set Body=Body_"<br/>"
+	Set Body=Body_DrugComment2
+	Set scSendEMail=##class(Library.Mail).SendEmail(ToAddress,FromAddress,Subject,Body,Attachment,emailPriority)
+	Quit
+	
+CHKMICRODRUG
+	Set Drug="BOBBIE"
+	If '$D(^MICRO("DRUG",Drug)) Write "EMAIL sent" Do EMAILTEST
+	
+DEMOUPDATE
+	
+	I $D(^L(XP,PNO)) Set INC=^L(XP,PNO,.03),DNO=$P(^L(XP,PNO,.02),"#",1)
+	I $D(^M(XP,PNO)) Set INC=^M(XP,PNO,.03),DNO=$P(^M(XP,PNO,.02),"#",1)
+	S TNO="" F I=1:1  S TNO=$P(INC,"*",I) Q:TNO=""  D
+	.Write TNO_"  "_PNO_"  "_DNO,!
+	Quit
+	
+	
+CompleteMicroAccessions
+	Set flgDebug=1
+	Set FILE="S:\TempBobbie\Unreported Accessions.csv"
+	If flgDebug Use $P Write !,"FILE="_FILE
+	Open FILE
+	For I=1:1 Use FILE Read DATA Quit:DATA=""  Do
+	.Set LVL=$Piece(DATA,$C(9),1)
+	.If flgDebug Use $P Write !,"LVL = "_LVL Read DUD
+	.Set PNO=$P(LVL,",",1)
+	.If flgDebug Use $P Write !,"PNO = "_PNO Read DUD
+	.Set XP=PNO#100
+	.Set AccessionedDate=$P(^M(XP,PNO,.5),"*",1)
+	.Set Day=$P(AccessionedDate,",",1) ;Get the day so we can add 4 days to it
+	.Set Time=$P(AccessionedDate,",",2)
+	.Set CompletedDT=Day+4_","_Time
+	.Set DNO=$P(^M(XP,PNO,.02),"#",1)
+	.Set FaxRoute=^DOC(DNO,6)
+	.If $D(^MRP(FaxRoute,DNO,PNO)) k ^MRP(FaxRoute,DNO,PNO) ;remove from print list
+	.Set ^M(XP,PNO,.8)=CompletedDT
+	.Set ^MODIFIED("MSSQL","PNO",PNO)=""
+	Close FILE
+	Quit
+	
+CompleteMicroAccessionTest1
+	Set PNO=201905006328
+	Set XP=PNO#100
+	Set AccessionedDate=$P(^M(XP,PNO,.5),"*",1)
+	Set Day=$P(AccessionedDate,",",1) ;Get the day so we can add 4 days to it
+	Set Time=$P(AccessionedDate,",",2)
+	Set CompletedDT=Day+4_","_Time
+	Set DNO=$P(^M(XP,PNO,.02),"#",1)
+	Set FaxRoute=^DOC(DNO,6)
+	If $D(^MRP(FaxRoute,DNO,PNO)) k ^MRP(FaxRoute,DNO,PNO) ;remove from print list
+	Set ^M(XP,PNO,.8)=CompletedDT
+	Set ^MODIFIED("MSSQL","PNO",PNO)=""

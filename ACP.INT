@@ -1,0 +1,163 @@
+ROUTINE ACP [Type=INT]
+ACP ;  ACCESSION LIST [ 11/06/2001  4:25 PM ]
+ ; INTERPATH - KJD/RLH
+ ; 2/2/96
+ ;
+FLASH K  S $ZT="ERROR^ACP",(PCNT,TCNT,BCNT)=0
+ S $P(DSH,"-",81)="",VAR(1)="ACCESSION LIST" D ^LIB0010
+ S RTE=$$GETDRN^LIB0030($J) I RTE'="" S LC(LC)="",AN="N",AS="A",AR="R",TYP="A" G DATE
+ ;
+START W !!,"(A)ll, (S)elected Locations: " R AS Q:AS=""
+ I "^A^S^"'[("^"_AS_"^") W /BEL," ???" G START
+ I AS="S" S INI=$$GETINI^LIB0030($J) D ^LIB0100(0) S LC(LC)="" G DATE
+ S (LC,LCS)="" F  S LC=$O(^SYSTEM("LC",LC)) Q:LC=""  S LCS=LCS_LC_"_"
+ K LC F I=1:1 S LC=$P(LCS,"_",I) Q:LC=""  S LC(LC)=""
+ ;
+DATE D ^LIB0019 R !!,"Enter date, (T)oday, (Y)esterday or MM/DD/YYYY: ",%DT
+ I %DT="" Q
+ I %DT="T" S %DT=%TOD D ^LIB0013 W "  ",%DAT4 G DATE+6
+ I %DT="Y" S %DT=%TOD-1 D ^LIB0013 W "  ",%DAT4 G DATE+6
+ D ^LIB0014 I %DAT=0 W /BEL,!!?25,"  << INVALID DATE FORMAT >> ",! G DATE
+ S %DAT4=%DT,%DT=%DAT
+ I AS="S" I '$D(^ACP("ACP",LC,%DT)) W /BEL,!!,"<< ERROR >> No Patients Accessioned for ",%DAT4," for Location ",$P(^SYSTEM("LC",LC),"_",5) G DATE
+ I $G(AR)="R" G ROUTE
+ R !!,"(A)lphabetic, (N)umeric: ",AN G DATE:AN="" I "^A^N^"'[("^"_AN_"^") W /BEL," ???" G DATE+5
+ R !!,"(A)ll, (L)ab, (M)icro: ",TYP G DATE+5:TYP="" I "^A^L^M^"'[("^"_TYP_"^") W /BEL," ???" G DATE+6
+ S AR="A" I AS="A" R !!,"(A)ll, (R)oute <A>: ",AR S:AR="" AR="A" I "^A^R^"'[("^"_AR_"^")
+ I AR="R" D
+ .W ?40,"Route: " R RTE I RTE="" W /BEL,! G DATE+9
+ .I '$D(^DUTL("DRN",RTE)) W /BEL," ???",! G DATE+9
+ROUTE S LC="" F  S LC=$O(LC(LC)) Q:LC=""  D
+ .I '$D(^ACP("ACP",LC,%DT)) S L(LC)="" Q
+ .S LO=$G(^ACP("ACP",LC,(%DT-1))) I LO="" S PDAT=$O(^PNO(%DT),-1),LO=^PNO(PDAT)
+ .S HI=^ACP("ACP",LC,%DT),LC(LC)=LO_"_"_HI
+ S LC="",MIN=999999999999,MAX=0 F  S LC=$O(LC(LC)) Q:LC=""  D
+ .I LC(LC)="" Q
+ .S LO=$P(LC(LC),"_",1) I LO<MIN S MIN=LO
+ .S HI=$P(LC(LC),"_",2) I HI>MAX S MAX=HI
+ I AN="N" G NUMERIC
+ ;
+ALPHA W !!,?15,"***** Building alphabetic file for ",%DAT4," *****"
+ S PNO=MIN F  S PNO=$O(^LKN(PNO)) Q:PNO=""!(PNO>MAX)  D
+ .S XP=PNO#100,DATA=^LKN(PNO),FIL=$P(DATA,"^",1)
+ .I '((FIL="LCF")!(FIL="MCF")) Q
+ .I TYP="M",FIL="LCF" D RFXB Q
+ .I TYP="L",FIL="MCF" Q
+ .I FIL="LCF" Q:'$D(^L(XP,PNO))  S PNA=^L(XP,PNO,.01),LC=$P(^(.5),"*",3) I $D(LC(LC)) S ^ACP("LOG",$J,PNA,PNO)=FIL Q
+ .I FIL="MCF" Q:'$D(^M(XP,PNO))  S PNA=^M(XP,PNO,.01),LC=$P(^(.5),"*",3) I $D(LC(LC)) S ^ACP("LOG",$J,PNA,PNO)=FIL Q
+ R !!,"Enter starting name: ",CCC D ^LIB0110("P")
+ D NUPAG S:CCC'="" CCC=$ZP(^ACP("LOG",$J,CCC)) F  S CCC=$O(^ACP("LOG",$J,CCC)) Q:CCC=""  D
+ .S PNO="" F  S PNO=$O(^ACP("LOG",$J,CCC,PNO)) Q:PNO=""  D
+ ..S FIL=^(PNO) S XP=PNO#100
+ ..S FLG=111 D @FIL I FLG=111 D PRINT
+ I %TRM=$P W !!,"<cr.> to continue: " R DUD
+ G END
+ ;
+NUMERIC D ^LIB0110("P") D NUPAG
+ S PNO=MIN F  S PNO=$O(^LKN(PNO)) Q:PNO>MAX  Q:PNO=""  D
+ .S XP=PNO#100,DATA=^LKN(PNO),FIL=$P(DATA,"^",1)
+ .I '((FIL="LCF")!(FIL="MCF")) Q
+ .I TYP="M",FIL="LCF" D RFXB Q
+ .I TYP="L",FIL="MCF" Q
+ .S FLG=111 D @FIL I FLG=111 D PRINT
+ I %TRM=$P W !!,"<cr.> to continue: " R DUD
+ G END
+ ;
+END W !!,"Total # Patients: ",?25,PCNT,!,"Total # Test Requests: ",?25,TCNT
+ I TYP="M",AS="A" W !,"Total # Blood Cultures: ",?25,BCNT D RFXP
+ K ^ACP("LOG",$J) I %TRM'=$P W #
+ D ^LIB0111
+ Q
+ ;
+MCF S ORD="" K SPIN S PNA=^M(XP,PNO,.01),DOC=^(.02),MORD=^(.03),HNO=$P(^(.04),"^",1),SPIN=^(.05),LOC=^(.07),COL=^(.09),ACC=$P(^(.5),"*",1),INI=$P(^(.5),"*",2),LC=$P(^(.5),"*",3) I $$^LIB0033(PNO)
+ I '$D(LC(LC)) S FLG=999 Q
+ I (LC(LC)="") S FLG=999 Q
+ S LO=$P(LC(LC),"_",1),HI=$P(LC(LC),"_",2)
+ I '(PNO>LO) S FLG=999 Q
+ I PNO>HI S FLG=999 Q
+ S %DT=$P(ACC,",",1),%TM=$P(ACC,",",2) D ^LIB0011,^LIB0013 S ACC=%DAT4_" "_%TIM2
+ S %DT=$P(COL,"^",1),%TM=$P(COL,"^",2) D ^LIB0011,^LIB0013 S COL=%DAT4_" "_%TIM2
+ S DNO=$P(DOC,"#",1),DNA=$P(DOC,"#",2),DRN=$P(DOC,"#",3)
+ S (P1,C1)="",P2="Not Applicable" D
+ .I $P($G(^MRP(DRN,DNO,PNO)),"*",3)="PRINTED" S P1="Autoprinted"
+ .I $D(^M(XP,PNO,.7)) S %DT=$P(^(.7),",",1),%TM=$P(^(.7),",",2) D ^LIB0011,^LIB0013 S P1=%DAT4_" "_%TIM2
+ .I $D(^M(XP,PNO,.8)) S %DT=$P(^(.8),",",1),%TM=$P(^(.8),",",2) D ^LIB0011,^LIB0013 S C1=%DAT4_" "_%TIM2
+ I SPIN'="" F I=1:1:6 S LEV=.05_I,DATA=$G(^M(XP,PNO,LEV)) I DATA'="" S SPIN(I)=DATA
+ S ORD="" F I=1:1 S TNO=$P(MORD,"*",I) Q:TNO=""  D
+ .I TNO=4090 Q
+ .I ((TNO=4040)!(TNO=4086)) S BCNT=BCNT+1
+ .S ORD=ORD_TNO_"*"
+ Q
+ ;
+LCF S ORD="" K SPIN S PNA=^L(XP,PNO,.01),DOC=^(.02),ORD=^(.03),HNO=$P(^(.04),"^",1),SPIN=^(.05),LOC=^(.07),COL=^(.09),ACC=$P(^(.5),"*",1),INI=$P(^(.5),"*",2),LC=$P(^(.5),"*",3) I $$^LIB0033(PNO)
+ I '$D(LC(LC)) S FLG=999 Q
+ I LC(LC)="" S FLG=999 Q
+ S LO=$P(LC(LC),"_",1),HI=$P(LC(LC),"_",2)
+ I '(PNO>LO) S FLG=999 Q
+ I PNO>HI S FLG=999 Q
+ S %DT=$P(ACC,",",1),%TM=$P(ACC,",",2) D ^LIB0011,^LIB0013 S ACC=%DAT4_" "_%TIM2
+ S %DT=$P(COL,"^",1),%TM=$P(COL,"^",2) D ^LIB0011,^LIB0013 S COL=%DAT4_" "_%TIM2
+ S DNO=$P(DOC,"#",1),DNA=$P(DOC,"#",2),DRN=$P(DOC,"#",3)
+ S (P1,P2,C1)="" D
+ .I $D(^L(XP,PNO,.7)) F I=1:1:2 S DATA=$P(^(.7),"*",I) Q:DATA=""  D
+ ..S %DT=$P(DATA,",",1),%TM=$P(DATA,",",2) D ^LIB0011,^LIB0013 S VAR="P"_I,@VAR=%DAT4_" "_%TIM2
+ .I $D(^L(XP,PNO,.8)) S %DT=$P(^(.8),",",1),%TM=$P(^(.8),",",2) D ^LIB0011,^LIB0013 S C1=%DAT4_" "_%TIM2
+ S STA="Logged" S:$D(^L(XP,PNO,.7)) STA="Preliminary" S:$D(^L(XP,PNO,.8)) STA="Completed"
+ I SPIN'="" F I=1:1:6 S LEV=.05_I,DATA=$G(^L(XP,PNO,LEV)) I DATA'="" S SPIN(I)=DATA
+ Q
+ ;
+PRINT I AR="R",DRN'=RTE Q
+ S PCNT=PCNT+1 W !! F I=1:1 S DATA=$P($T(FIELDS+I),";",2) Q:DATA=""  D
+ .S TXT=$P(DATA,"_",1),VAR=$P(DATA,"_",2),LIN=$P(DATA,"_",3),TAB=$P(DATA,"_",4)
+ .I I=11 W TXT,?TAB D FONTB W @VAR D FONTN I LIN="Y" W ! Q
+ .I %TRM=$P I $Y>18 W !!,"<cr.> to continue: " B 1 R DUD W /ED(2),/CUP(1,1) B 0
+ .W TXT,?TAB,@VAR I LIN="Y" W !
+ W " Test Requests:" F I=1:1 S TNO=$P(ORD,"*",I) Q:TNO=""  D
+ .I %TRM=$P I $Y>18 W !!,"<cr.> to continue: " B 1 R DUD W /ED(2),/CUP(1,1) B 0
+ .S TCNT=TCNT+1,XT=TNO#100,TNA=$P(^T2(XT,TNO,1),"[",1) W ?18,TNO," ",TNA,!
+ I $O(SPIN(""))'="" W !,"  Instructions:",! S LEV="" F  S LEV=$O(SPIN(LEV)) Q:LEV=""  S VAR(1)=18,VAR(2)=80,VAR(3)=SPIN(LEV),VAR(4)="Y" D ^SUB001
+ W !,DSH Q
+ ;
+RFXB ; Build Urine Reflex Checkoff
+ I '$D(^L(XP,PNO)) Q
+ S ORD=^L(XP,PNO,.03),PNA=^(.01),LC=$P(^(.5),"*",3) I ORD'["3307" Q
+ S DATA=$G(LC(LC)) I DATA="" Q
+ S LO=$P(DATA,"_",1),HI=$P(DATA,"_",2) I ((PNO<LO)!(PNO>HI)) Q
+ S URI(PNO)=PNA Q
+ ;
+RFXP W #,! D ^LIB0017 W ?28,"Urine Reflex Checkoff sheet" W ?70 D ^LIB0018
+ W !!,"Acc#",?20,"Patient Name",?60,"Checkoff",!,DSH,!
+ S PNO="" F  S PNO=$O(URI(PNO)) Q:PNO=""  D
+ .S PNA=URI(PNO) I $$^LIB0033(PNO)
+ .W !!,PRN,?20,PNA,?60,"__________"
+ W # Q
+ ;
+FONTN S X=$X W @%PTR("FLN") S $X=X Q
+FONTB S X=$X W @%PTR("FLB") S $X=X Q
+ ;
+ERROR ;
+	D ^LIB0015("ACP")
+ 	K ^ACP("LOG",$J)
+ 	;W !,$ZE
+ 	Q
+ 	;
+NUPAG I %TRM=$P W /ED(2),/CUP(1,1)
+ U %TRM W ! D ^LIB0017 W ?26,"ACCESSION LIST FOR ",%DAT4 W ?68 D ^LIB0018
+ W !!,"Locations: " S LC="" F  S LC=$O(LC(LC)) Q:LC=""  W $P(^SYSTEM("LC",LC),"_",5) I $O(LC(LC))'="" W "; "
+ W !,"Type: ",$S(AN="A":"Alphabetic",1:"Numeric")
+ W !,"Selection: ",$S(TYP="A":"All",TYP="L":"Lab",TYP="M":"Microbiology",1:"Error")
+ Q
+ ;
+FIELDS ;
+ ;IP Accession #:_PRN_Y_18
+ ;       Client :_DNO_N_18
+ ;_DNA_Y_24
+ ;  Patient Name:_PNA_Y_18
+ ;     Request #:_HNO_Y_18
+ ;    Patient ID:_LOC_Y_18
+ ;     Collected:_COL_Y_18
+ ;   Accessioned:_ACC_Y_18
+ ;     Prelim #1:_P1_Y_18
+ ;     Prelim #2:_P2_Y_18
+ ;     Completed:_C1_Y_18
+ ;

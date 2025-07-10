@@ -1,0 +1,81 @@
+ROUTINE BLDBNK0110 [Type=INT]
+BLDBNK0110(TYP,IOD) ; Open IO device  [ 06/27/2002  3:36 PM ]
+ ; Designed for interactive use from a prompt
+ ; Interpath - RH
+ ; 6/26/97
+ ;
+ ; Rebuilt for Cache - rlhed
+ ;
+ ;
+ Q
+ ; Not sure what this routine is put this quit in 4/3/2012, program NOT called from the MENU system
+FLASH ; Routine Setup
+ S $ZT="ERROR^LIB0110"
+ B 0 N (%TRM,%PTR,TYP,IOD)
+ S LC=$$GETLC^LIB0030($J)
+ K P S LEV="" F  S LEV=$O(^SYSTEM("DEVICE","PRINTERS",LEV)) Q:LEV=""  Q:LEV'?.N  D
+ .I $P(^SYSTEM("DEVICE","PRINTERS",LEV),"_",3)=TYP S P(LEV)=^(LEV)
+ ;
+SLCT ; Choose an output device
+ I IOD["?" D HELP  G SLCT
+ I IOD=0,TYP'="P" W "  Enter ? for a list" G SLCT
+ I IOD="",TYP'="P" Q
+ I IOD="" W "  Enter ? for a list" G SLCT
+ I IOD=0 S %TRM=$P,%PTR("MOD")="CRT" D FONT G END
+ I '$D(P(IOD)) W /BEL," No such device - try ? for a list"  G SLCT
+ I $P(P(IOD),"_",8)'=LC W *7,!!,"<< WARNING >> Device is not located at your workcenter",!,"Use it anyway? <Y/N> [N]: " R ANS I (ANS'="Y") G SLCT
+ D ^LIB0112(IOD) ; Returns %FILE
+ S %PTR("MOD")=$P(P(IOD),"_",6),%PTR("FIL")=%FILE,%TRM=%FILE
+ D FONT ; Define fonts for printer type
+ S VAR(1)=%FILE,VAR(2)=0,VAR(3)=1,VAR(4)=1,VAR(5)="",VAR(6)=5
+ S SC=$$^LIB0115(.VAR) I SC W *7,!!,"<< ERROR >> Unable to open file for output - Contact computer department" G SLCT
+ S ^SYSTEM("LIB0500","LOCK",%FILE)="",%PTR("LOCK")=%FILE ; Flag file as unusable until ^LIB0111 releases it
+END ; End of routine
+ B 1 ; re-enable break mode
+ U %TRM W @%PTR("INI") Q
+ ;
+FONT ; 	Define Fonts based on printer type
+ F I=1:1 S DATA=$P($T(ATTRIB+I),";",2) Q:DATA=""  D
+ .S ATB=$P(DATA,"_",1),%PTR(ATB)=^SYSTEM("FONT",%PTR("MOD"),ATB)
+ Q
+ ;
+ERROR ; Interpath Error Trap
+ D ^LIB0015("LIB0110") Q
+ ;
+HELP ; Help text to display available devices of TYP
+ D ^LIB0100(0) I LC="" Q
+ K T S LEV="" F  S LEV=$O(^SYSTEM("DEVICE","PRINTERS",LEV)) Q:LEV=""  Q:LEV'?.N  D
+ .S DATA=^(LEV) I $P(DATA,"_",3)'=TYP Q
+ .I $P(DATA,"_",8)'=LC Q
+ .S T(LEV)=DATA
+ W /ED(2),/CUP(1,1),?30,"<< PRINTER LIST >>"
+ W !!,"Device",?8,"Location",?40,"Printer Type",?60,"Paper",!
+ F I=1:1:80 W "-"
+ S NXT="" F  S NXT=$O(T(NXT)) Q:NXT=""  D
+ .I $Y>18 W !!,"<cr.> to continue" R DUD W /ED(2),/CUP(1,1)
+ .S LOC=$P(T(NXT),"_",4),PPR=$P(T(NXT),"_",5),PTR=$P(T(NXT),"_",7)
+ .W !,NXT,?8,$E(LOC,1,30),?40,$E(PTR,1,15),?60,$E(PPR,1,20)
+ W !!,"<cr.> to continue: " R DUD
+ K T 
+ G ^BLDBNK02,ACCESSIONPRINT
+ Q
+ ;
+ATTRIB ; Printer Attribute List
+ ;FSB_Small Font Bold
+ ;FSN_Small Font Normal
+ ;FSU_Small Font Underlined
+ ;FMB_Medium Font Bold
+ ;FMN_Medium Font Normal
+ ;FMU_Medium Font Underlined
+ ;FLB_Large Font Bold
+ ;FLN_Large Font Normal
+ ;FLU_Large Font Underlined
+ ;FXB_X-Large Font Bold
+ ;FXN_X-Large Font Normal
+ ;FXU_X-Large Font Underlined
+ ;INI_Printer Initialization Sequence
+ ;PLA_Page Length A
+ ;PLB_Page Length B
+ ;LWA_Line Spacing 6 LPI
+ ;LWB_Line Spacing 8 LPI
+ ;

@@ -1,0 +1,68 @@
+ROUTINE AZDP [Type=INT]
+AZDP ; CLIENT FILE INQUIRY [ 12/12/2001   1:34 PM ]
+ ; INTERPATH - RH
+ ; 10/17/90
+ ;
+ W !,"Please use Master Client Index (MCI).",!,"https://apps.interpathlab.com/MCI" H 2
+ Q
+FLASH K  S $ZT="ERROR^AZDP"
+ W /ED(2),/CUP(1,1) F I=1:1:11 W !,$P($T(HEAD+I),";",2)
+ R !!,"Do you wish to continue <Y/N>: ",YN Q:YN'["Y"
+ S LNO(1)="" F  R !!,"Enter line number:  ",LIN Q:LIN=""  D  I $T(@LIN) S LNO(LIN)=""
+ .I '$T(@LIN) W /BEL,"    << NO SUCH LINE NUMBER !! >>"
+ 
+PRINT D ^LIB0110("P") S CCC="" F  S CCC=$O(^AZD(CCC)) Q:CCC=""  D
+ .S DNO="" F  S DNO=$O(^AZD(CCC,DNO)) Q:DNO=""  D
+ ..S DATA=^AZD(CCC,DNO) I $P(DATA,"_",1)'="" Q
+ ..S LNO="" F  S LNO=$O(LNO(LNO)) Q:LNO=""  S TXT=$P($T(@LNO),";",2),DATA=^DOC(DNO,LNO),LNO(LNO)=TXT_"*"_DATA
+ ..W !!,"ACCOUNT #",?25,DNO S LNO="" F  S LNO=$O(LNO(LNO)) Q:LNO=""  D
+ ...S DATA=LNO(LNO),TXT=$P(DATA,"*",1),INF=$P(DATA,"*",2) W !,TXT,?25,INF
+ I $P'=%TRM W #
+ D ^LIB0111
+ Q
+ERROR D ^LIB0015("AZDP")
+ Q
+ ;
+HEAD ;
+ ;                  *******************************************
+ ;                  *                                         *
+ ;                  *           CLIENT FILE INQUIRY           *
+ ;                  *                                         *
+ ;                  *******************************************
+ ;
+ ;This program allows you to print selected lines from the client files
+ ;in alphabetical order.
+ ;
+ ;Indicate the lines you would like to print followed by <cr.>.  If you
+ ;are through selecting lines enter <cr.> at the ENTER LINE NUMBER prompt
+ ;
+FIELDS ;
+ 
+1 ;NAME
+2 ;ADDRESS 1
+3 ;ADDRESS 2
+4 ;ADDRESS 3
+5 ;PHONE #
+6 ;ROUTE #
+7 ;MAILSTOP
+8 ;FAX #
+10 ;GENERAL INST.
+15 ;OFFICE INFO
+20 ;ASK FOR DR NAME
+25 ;ALPHA LISTINGS
+30 ;BILLING (D OR P)
+33 ;FEE SCHEDULE
+35 ;CLINICAL REQ CUSTOM
+36 ;DRUG REQ CUSTOM
+38 ;PT AMBULATORY STATUS
+40 ;REPORT FORMAT
+45 ;PRELIM REPORTS
+50 ;NUMBER OF COPIES
+55 ;BILLING NUMBER
+60 ;CLIENT % DISCOUNT
+61 ;PATIENT % DISCOUNT
+62 ;SPLIT REVENUE ?
+65 ;PROVIDER #
+75 ;DATE STARTED
+80 ;LAB REQ FORM INFO
+81 ;CYTO REQ FORM INFO

@@ -1,0 +1,66 @@
+ROUTINE AutomationSpecimenRequirments [Type=INT,Generated]
+AutomationSpecimenRequirments
+AutomationTestsList
+	Kill ^CacheTemp.ADAM1("AutomationTestList")
+	Set XT="" For  Set XT=$Order(^T2(XT)) Quit:XT=""  Do
+	.Set TNO="" For  Set TNO=$Order(^T2(XT,TNO)) Quit:TNO=""  Do
+	..If TNO>3999&(TNO<5000) Quit
+	..Set flgActive=$Get(^T2(XT,TNO,400))
+	..If flgActive'="Y" Quit ; Filter Out Non Active Tests
+	..Set PreferredSpecimen=$Get(^T2(XT,TNO,200))
+	..Set AlternateSpecimen=$Get(^T2(XT,TNO,201))
+	..;
+	..;Get Perfered Collection Containers
+	..Set pr=$Length(PreferredSpecimen,"|") 
+	..For ii=1:1:pr Set poid=$Piece(PreferredSpecimen,"|",ii) Quit:poid=""  Do
+	...Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...If PrefSpec=0 Quit
+ 	...Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...If PrefSpec.Container="" Quit
+ 	...If PrefSpec.Container'="" Set Container=##class(Supplies.Container).%OpenId(PrefSpec.Container)
+ 	...Set OutputString="NONE"
+	...If $d(Container) Set OutputString=$$GetContainerID(PrefSpec.Container)_"|"_Container.Volume_" "_Container.InterpathDescription
+	...Set ^CacheTemp.ADAM1("AutomationTestList",TNO,PrefSpec.Container)=OutputString
+	..;
+	..;Get Alternate Collection Containers
+	..Set pr=$Length(AlternateSpecimen,"|") 
+	..For ii=1:1:pr Set poid=$Piece(AlternateSpecimen,"|",ii) Quit:poid=""  Do
+	...Set PrefSpec=##class(TestFile.CollectionRequirements).%ExistsId(poid)
+ 	...If PrefSpec=0 Quit
+ 	...Set PrefSpec=##class(TestFile.CollectionRequirements).%OpenId(poid)
+ 	...If PrefSpec.Container="" Quit
+ 	...If PrefSpec.Container'="" Set Container=##class(Supplies.Container).%OpenId(PrefSpec.Container)
+ 	...Set OutputString="NONE"
+	...If $d(Container) Set OutputString=$$GetContainerID(PrefSpec.Container)_"|"_Container.Volume_" "_Container.InterpathDescription
+	...Set ^CacheTemp.ADAM1("AutomationTestList",TNO,PrefSpec.Container)=OutputString
+	..;
+	..Set CNOS=$Get(^T2(XT,TNO,7))
+	..For I=1:1:$Length(CNOS,"*") Set CNO=$Piece(CNOS,"*",I) Quit:CNO=""  Do
+	...Set CXT=CNO#100
+	...Set CNA=$Get(^T2(CXT,CNO,1))
+	...Merge ^CacheTemp.ADAM1("AutomationTestList",CNO)=^CacheTemp.ADAM1("AutomationTestList",TNO)
+	..;Write !,TNO Read DUD
+	;
+	Kill
+	Do ^LIB0110("P")
+	Set TNO="" For  Set TNO=$Order(^CacheTemp.ADAM1("AutomationTestList",TNO)) Quit:TNO=""  Do
+	.Set LEV="" For  Set LEV=$Order(^CacheTemp.ADAM1("AutomationTestList",TNO,LEV)) Quit:LEV=""  Do
+	..Set XT=TNO#100
+	..Set TNA=$Get(^T2(XT,TNO,1))
+	..If TNA["UNLISTED" Quit
+	..If $Get(^T2(XT,TNO,5))>1 Quit
+	..Set Data=^CacheTemp.ADAM1("AutomationTestList",TNO,LEV)
+	..Write !,TNO_"|"_TNA_"|"_Data
+	Do ^LIB0111
+	Quit
+	;Set ID=$$GetContainerID^AutomationSpecimenRequirments(20)
+GetContainerID(ContainerCode)
+	New (ContainerCode)
+	Set ContainerID=""
+	Set sql="SELECT %NOLOCK ID FROM LIS_SQL.tblCollectionContainer WHERE Code = '"_ContainerCode_"'"
+	Set rset=##class(%Library.ResultSet).%New()
+	Set sc=rset.Prepare(sql) I 'sc Write !!,"sql Prepare() failed! ",sc,!
+	Set sc=rset.Execute() If 'sc Write !!,"sql Execute() failed! ",sc,!
+	While rset.Next() 
+	{Set ContainerID=rset.Data("ID")}
+	Quit ContainerID

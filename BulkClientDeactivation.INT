@@ -1,0 +1,104 @@
+ROUTINE BulkClientDeactivation [Type=INT,Generated]
+BulkClientDeactivation
+GetInfo
+    ;EXCEL FILE SAVED AS TAB DELIMETED
+ 	Kill ^CacheTemp.BulkClientDeactivation("BulkClientDeactivation")
+ 	Set FILE="S:\Uploads\Inactiveclients.txt"
+ 	Set DATA=""
+ 	Open FILE
+ 	For I=1:1 Use FILE  Read DATA Quit:DATA=""  Do 
+ 	.Set DNO=$Piece(DATA,$C(9),1)
+ 	.Set ^CacheTemp.BulkClientDeactivation("BulkClientDeactivation",DNO)=DATA
+ 	Close FILE
+ 	Quit
+FindHL7Route
+ 	;HL7("DNO"
+ 	;HL7("DIRECTORY"
+ 	Set DEACTIVEDNO="" For  Set DEACTIVEDNO=$Order(^CacheTemp.BulkClientDeactivation("BulkClientDeactivation",DEACTIVEDNO)) Quit:DEACTIVEDNO=""  Do
+ 	.Set ROUTE=^DOC(DEACTIVEDNO,6)
+ 	.Set HL7DIRECTORY=$Get(^HL7("DNO",DEACTIVEDNO))
+ 	.Set HL7DIRECTORY=$P(HL7DIRECTORY,"_",1)
+ 	.If HL7DIRECTORY="" Set HL7DIRECTORY="NULL"
+ 	.Set HL7DIRECTORYNAME=$Get(^HL7("DIRECTORY",HL7DIRECTORY))
+ 	.Set HL7DIRECTORYNAME=$P(HL7DIRECTORYNAME,"|",42)
+ 	.If HL7DIRECTORYNAME="" Set HL7DIRECTORYNAME="NULL"
+ 	.WRITE DEACTIVEDNO_" "_ROUTE_" "_HL7DIRECTORY_" "_HL7DIRECTORYNAME ,!
+ 	Quit
+StartInactivate
+	Set DNO="" For  Set DNO=$Order(^CacheTemp.BulkClientDeactivation("BulkClientDeactivation",DNO)) Quit:DNO=""  Do
+	.Do INACTIVE(DNO)
+	.Write !,"Deactivated: "_DNO Read DUD
+	Quit
+	;
+INACTIVE(DNO)	; Make Client File Inactive
+	New (DNO)
+	M ^ARCHIVEDOC(DNO,$ZDT($H,3,1),$$GETINI^LIB0030($J),"^DOC")=^DOC(DNO) ;Logging of ^DOC before it is changed bjmcg 1/11/2017
+    I $D(^HL7("DNO",DNO))  Do
+    .M ^ARCHIVEDOC(DNO,$ZDT($H,3,1),$$GETINI^LIB0030($J),"^HL7")=^HL7("DNO",DNO) ;Logging of ^HL7("DNO" before it is changed bjmcg 1/11/2017
+    .Set ^MODIFIED("MSSQL","HL7DNO",DNO)=""
+	S ^DOC(DNO,6)=13 ; Route to 13
+	S ^DOC(DNO,17)="N" ; I guess we know the answer to this question
+	S ^DOC(DNO,40)=3 ; Report format to 3
+	S ^DOC(DNO,33)="A" ; Fee Schedule to A
+	S CCC="" F  S CCC=$O(^AZD(CCC)) Q:CCC=""  D  ; Clean up alpha lookup
+	.S NXT="" F  S NXT=$O(^AZD(CCC,NXT)) Q:NXT=""  D
+	..I NXT=DNO K ^AZD(CCC,NXT)
+	.S ^DOC(DNO,25)="X"
+	F LIN=7,10,12,15,16,36,37,39,46,47,75,76,80,81,82,83,84,85,91,92,93,94,95 S ^DOC(DNO,LIN)="" ; Clean out selected lines
+	S INI=$$GETINI^LIB0030($J) S ^DOC(DNO,75)="Inactivated by "_INI_"  on "_$ZD(+$H)
+	S ^LOG("DOCB",$$ZTS^LIB0009)=$$GETINI^LIB0030($J)_" inactivated Client "_DNO_"."
+	S XT="" F  S XT=$O(^T2(XT)) Q:XT=""  D
+	.S TNO="" F  S TNO=$O(^T2(XT,TNO)) Q:TNO=""  D
+	..F LIN=110,111,130,131 D
+	...K C S DATA=^T2(XT,TNO,LIN)
+	...I DATA'[DNO_"$" Q  ; No customs for this client
+	...F I=1:1 S CUS=$P(DATA,"*",I) Q:CUS=""  D
+	....S CLT=$P(CUS,"$",1),PRI=$P(CUS,"$",2),C(CLT)=PRI
+	...K C(DNO) ; Eliminate
+	...S (DATA,CLT)="" F  S CLT=$O(C(CLT)) Q:CLT=""  S PRI=C(CLT),DATA=DATA_CLT_"$"_PRI_"*"
+	...S ^T2(XT,TNO,LIN)=DATA
+	..S ^MODIFIED("TNO",TNO)="" S ^MODIFIED("MSSQL","TNO",TNO)=""
+	K ^FLG("STAN",DNO) ; Clean up standalone testing
+	K ^FLG("CONF",DNO) ; Clean up confidential
+	K ^FLG("TNC",DNO) ; Clean up auto test conversion
+	K ^RLG("CRV",DNO) ; Clean up custom critical values
+	K ^FLG("LOG003","CLIENT",DNO) ; clean up accession messages for client
+	K ^FLG("LOG003","PATIENT",DNO) ; clean up accession messages for patient/client combo
+	S TNO="" F  S TNO=$O(^FLG("LOG003","TEST",TNO)) Q:TNO=""  K ^FLG("LOG003","TEST",TNO,DNO) ; clean up accession messages for test/client combo
+	K ^RLG("RLG",DNO) ; Clean up reflexing
+	K ^DUTL("RP4",DNO) ; Report format 4 clean up
+	K ^DUTL("FRM016",DNO) ; Clean up Blank Requistion Form entry
+	K ^DUTL("FRM018",DNO) ; Clean up Custom Screens on clinical lab req 
+	K ^DUTL("TNA",DNO) ; Clean up custom client names
+	K ^HL7("DNO",DNO) ; Clean up HL7 reporting
+	K ^FLG("PRNT101","DNO",DNO) ; Clean up autoprint settings
+	K ^FLG("PRNT101","TNO",DNO) ; Clean up autoprint settings
+	K ^FLG("PRNT101","NOCS",DNO) ; Clean up autoprint settings
+	;
+	S ^MODIFIED("DNO",DNO)="" S ^MODIFIED("MSSQL","DNO",DNO)="" ; Places this account on the MODIFIED list so background process knows to update the data into the LIS.cClient class
+	Q
+	;Do CreateFile^BulkClientDeactivation
+CreateFile
+	Set File="S:\Temp\BulkClientDeactivation"_"\DeactiveDNORouteAndDirectory"_$H_".csv"
+	Set oFile=##class(%Library.File).%New(File) i 'oFile W "ERROR CREATING FILE: ",File,!!,$system.OBJ.DisplayError(%objlasterror),! Q 0
+	Set sc=oFile.Open("WSN") i 'sc W "ERROR OPENING FILE: ",File,!!,$system.OBJ.DisplayError(%objlasterror),! Q 0
+	;Build Column header
+	S Headers="DNO,"
+	S Headers=Headers_"Route,"
+	S Headers=Headers_"Directory,"
+	S Headers=Headers_"DirectoryName"
+	Do oFile.WriteLine(Headers)
+	;
+ 	Set DEACTIVEDNO="" For  Set DEACTIVEDNO=$Order(^CacheTemp.BulkClientDeactivation("BulkClientDeactivation",DEACTIVEDNO)) Quit:DEACTIVEDNO=""  Do
+ 	.Set ROUTE=^DOC(DEACTIVEDNO,6)
+ 	.Set HL7DIRECTORY=$Get(^HL7("DNO",DEACTIVEDNO))
+ 	.Set HL7DIRECTORY=$P(HL7DIRECTORY,"_",1)
+ 	.If HL7DIRECTORY="" Set HL7DIRECTORY="NULL"
+ 	.Set HL7DIRECTORYNAME=$Get(^HL7("DIRECTORY",HL7DIRECTORY))
+ 	.Set HL7DIRECTORYNAME=$P(HL7DIRECTORYNAME,"|",42)
+ 	.If HL7DIRECTORYNAME="" Set HL7DIRECTORYNAME="NULL"
+ 	.;WRITE DEACTIVEDNO_","_ROUTE_","_HL7DIRECTORY_","_HL7DIRECTORYNAME ,!
+ 	.Set Line=DEACTIVEDNO_","_ROUTE_","_HL7DIRECTORY_","_HL7DIRECTORYNAME
+	.Do oFile.WriteLine(Line)
+ 	Do oFile.Close()
+	Quit
